@@ -66,7 +66,7 @@ eventsTable['auth:logout'] = () => {
 
 eventsTable['branch:select'] = (branch: string) => {
   const caw = CAWIPC.guid
-  CAWIPC.transmit('repo:diff-branch', { branch, caw })
+  CAWIPC.transmit('repo:branch:select', { branch, caw })
     .then((info: any) => {
       const peerFileUri = vscode.Uri.file(info.peerFile)
       const userFileUri = vscode.Uri.file(info.userFile)
