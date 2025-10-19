@@ -64,15 +64,32 @@ eventsTable['auth:logout'] = () => {
   CAWDeco.clear()
 }
 
-eventsTable['branch:select'] = (branch: string) => {
-  const caw = CAWIPC.guid
-  CAWIPC.transmit('repo:branch:select', { branch, caw })
-    .then((info: any) => {
-      const peerFileUri = vscode.Uri.file(info.peerFile)
-      const userFileUri = vscode.Uri.file(info.userFile)
-      // logger.info('OPEN DIFF with', info, fpath)
-      vscode.commands.executeCommand('vscode.diff', userFileUri, peerFileUri, info.title, { viewColumn: 1, preserveFocus: true })
-    })
+eventsTable['branch:select'] = (branchOrData: string | any) => {
+  // Handle two cases:
+  // 1. Called from webview with branch name (string) - need to transmit to Gardener
+  // 2. Called from IPC with response data (object) - already processed by Gardener
+  
+  logger.log('branch:select handler called with:', typeof branchOrData, branchOrData)
+  
+  if (typeof branchOrData === 'string') {
+    // Case 1: Branch name from webview
+    logger.log('branch:select Case 1: String branch name')
+    const caw = CAWIPC.guid
+    CAWIPC.transmit('branch:select', { branch: branchOrData, caw })
+      .then((info: any) => {
+        const peerFileUri = vscode.Uri.file(info.peerFile)
+        const userFileUri = vscode.Uri.file(info.userFile)
+        vscode.commands.executeCommand('vscode.diff', userFileUri, peerFileUri, info.title, { viewColumn: 1, preserveFocus: true })
+      })
+  } else if (branchOrData && branchOrData.peerFile && branchOrData.userFile) {
+    // Case 2: Response data from Gardener (via IPC from external source like Muninn)
+    logger.log('branch:select Case 2: Opening diff with peerFile:', branchOrData.peerFile, 'userFile:', branchOrData.userFile)
+    const peerFileUri = vscode.Uri.file(branchOrData.peerFile)
+    const userFileUri = vscode.Uri.file(branchOrData.userFile)
+    vscode.commands.executeCommand('vscode.diff', userFileUri, peerFileUri, branchOrData.title, { viewColumn: 1, preserveFocus: true })
+  } else {
+    logger.error('branch:select: Invalid data format', branchOrData)
+  }
 }
 
 eventsTable['branch:unselect'] = () => {
@@ -96,11 +113,16 @@ eventsTable['context:open-rel'] = (data: any) => {
 
 eventsTable['peer:select'] = (peer: any) => {
   const activeProject = CAWStore.activeProject
+  if (!activeProject) {
+    logger.log('peer:select: No active project available yet')
+    return
+  }
+  
   const { origin } = activeProject
   const fpath = activeProject.activePath
   if (!fpath) return
   const caw = CAWIPC.guid
-  CAWIPC.transmit<TDiffResponse>('repo:diff-peer', { origin, fpath, caw, peer })
+  CAWIPC.transmit<TDiffResponse>('diff-peer', { origin, fpath, caw, peer })
     .then((info) => {
       const peerFileUri = vscode.Uri.file(info.peerFile)
       // Note: thanks to smart node:path for figuring out how to join Windows and *nix paths together.
@@ -113,6 +135,23 @@ eventsTable['peer:select'] = (peer: any) => {
 
 eventsTable['peer:unselect'] = () => {
   CAWEditor.closeDiffEditor()
+}
+
+eventsTable['open-peer-file'] = (data: any) => {
+  logger.log('open-peer-file event received', data)
+  
+  // The response from Gardener includes absolute paths, so we handle it directly
+  if (data.exists) {
+    // File exists locally, just open it
+    const resourceUri = vscode.Uri.file(data.filePath)
+    vscode.commands.executeCommand('vscode.open', resourceUri)
+  } else {
+    // File doesn't exist locally, show diff with peer version
+    const emptyFile = vscode.Uri.file(data.emptyFilePath)
+    const peerFile = vscode.Uri.file(data.filePath)
+    const title = `New File (peer: ${data.peerId || 'unknown'})`
+    vscode.commands.executeCommand('vscode.diff', emptyFile, peerFile, title, { viewColumn: 1, preserveFocus: true })
+  }
 }
 
 export type TLineContext = {
@@ -230,7 +269,7 @@ function setup(webview: any, context: any) {
 
 function processIPC(res: any) {
   try {
-    const { flow, domain, action, data } = res
+    const { flow, domain, action, data, err } = res
     switch (`${flow}:${domain}:${action}`) {
       case 'res:code:sync:setup':
         // TODO
@@ -238,17 +277,26 @@ function processIPC(res: any) {
       case 'res:*:auth:login':
         eventsTable['auth:login'](res.data)
         break
-      case 'res:code:active-path':
-        eventsTable['peer:select'](res.data)
-        break
       case 'res:code:peer:select':
         eventsTable['peer:select'](res.data)
         break
       case 'res:code:branch:select':
+        logger.log('VSCode received res:code:branch:select with data:', res.data)
         eventsTable['branch:select'](res.data)
         break
       case 'res:code:context:open-rel':
         eventsTable['context:open-rel'](res.data)
+        break
+      case 'res:code:open-peer-file':
+        eventsTable['open-peer-file'](res.data)
+        break
+      case 'err:code:branch:select':
+        logger.error('Branch diff error:', err)
+        vscode.window.showErrorMessage(`Branch diff failed: ${err}`)
+        break
+      case 'err:code:open-peer-file':
+        logger.error('Open peer file error:', err)
+        vscode.window.showErrorMessage(`Failed to open peer file: ${err}`)
         break
     }
   } catch (err) {

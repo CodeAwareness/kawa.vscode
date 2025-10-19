@@ -3,7 +3,6 @@
  ******************************************************************/
 import IPC from '@/lib/ipc'
 import config from '@/config'
-import logger from './logger'
 import { CAWStatusbar } from '@/vscode/statusbar'
 
 import CAWWorkspace from './caw.workspace'

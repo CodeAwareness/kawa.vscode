@@ -45,7 +45,7 @@ function setupCommands(context: vscode.ExtensionContext) {
   }))
 
   context.subscriptions.push(registerCommand('caw.openPeerFile', function(wsFolder, fpath, uid) {
-    CAWIPC.transmit('repo:vscode-diff', { wsFolder, fpath, uid })
+    CAWIPC.transmit('vscode-diff', { wsFolder, fpath, uid })
       .then((data: any) => {
         if (data.exists) {
           const resourceUri = vscode.Uri.file(data.res1)

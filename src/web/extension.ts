@@ -85,7 +85,7 @@ const CAWDocumentContentProvider = {
     const peerFile = path.join(userDir, config.EXTRACT_REPO_DIR, uri)
     // logger.info('CodeAwareness: cawDocumentContentProvider uri', relativePath.path, 'peerFile', peerFile)
 
-    return CAWIPC.transmit('repo:read-file', { fpath: peerFile })
+    return CAWIPC.transmit('read-file', { fpath: peerFile })
       // TODO: find a better way to indicate deleted file, as opposed to new file created, as opposed to simply file not existing
       .catch(() => '') // if file not existing
   },
@@ -159,7 +159,7 @@ function setupWatchers(context: vscode.ExtensionContext) {
    ************************************************************************************/
   subscriptions.push(vscode.workspace.onDidSaveTextDocument(doc => {
     // TODO: some throttle mechanism to make sure we're only sending at most once per some configured interval
-    CAWIPC.transmit('repo:file-saved', { fpath: doc.fileName, doc: doc.getText(), caw: CAWIPC.guid })
+    CAWIPC.transmit('file-saved', { fpath: doc.fileName, doc: doc.getText(), caw: CAWIPC.guid })
       .then(CAWEditor.updateDecorations)
       .then(CAWPanel.updateProject)
       .then((project: any) => {

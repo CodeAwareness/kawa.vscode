@@ -14,7 +14,7 @@ class IPC {
   public pubsub = new EventEmitter()
   public socket = null as Socket | null
   public appspace = 'caw.'
-  public socketRoot = isWindows ? '\\\\.\\pipe\\' : os.tmpdir()
+  public socketRoot = isWindows ? '\\\\.\\pipe\\' : path.join(os.homedir(), '.kawa-code', 'sockets')
   public retryInterval = 2000 // retry connecting every 2 seconds
   public maxRetries = Infinity
 

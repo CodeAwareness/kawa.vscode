@@ -1,5 +1,10 @@
 # Change Log
 
+### 1.0.15
+
+Fixed diff-with-branch functionality.
+Compatibility with Kawa Code (new, rebranded version of Code Awareness).
+
 ### 1.0.14
 
 Compatibility with Windsurf AI

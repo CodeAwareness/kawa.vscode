@@ -44,7 +44,7 @@ function dispose() {
 }
 
 function setupTempFiles() {
-  return CAWIPC.transmit('repo:get-tmp-dir', CAWIPC.guid)
+  return CAWIPC.transmit('get-tmp-dir', CAWIPC.guid)
     .then((data: any) => {
       CAWStore.tmpDir = data.tmpDir
       logger.info('WORKSPACE: temporary folder used: ', CAWStore.tmpDir)
@@ -96,7 +96,7 @@ function refreshActiveFile() {
   if (!CAWStore.activeTextEditor) { logger.log('no active text editor'); return }
   const fpath = CAWEditor.getEditorDocFileName()
 
-  return CAWIPC.transmit<TProject>('repo:active-path', { fpath, caw: CAWIPC.guid, doc: CAWStore.activeTextEditor.document.getText() })
+  return CAWIPC.transmit<TProject>('active-path', { fpath, caw: CAWIPC.guid, doc: CAWStore.activeTextEditor.document.getText() })
     .then(addProject)
     .then(CAWEditor.updateDecorations)
     .then(CAWPanel.updateProject)
@@ -136,7 +136,7 @@ function cycleBlock(direction: number) {
   isCycling = true
   let block: any
   return promise
-    .then(() => CAWIPC.transmit<TDiffBlock>('repo:cycle-block', { caw, origin, fpath, doc, line, direction }))
+    .then(() => CAWIPC.transmit<TDiffBlock>('cycle-block', { caw, origin, fpath, doc, line, direction }))
     .then(data => {
       logger.log('CYCLE RESPONSE', data)
       block = data
