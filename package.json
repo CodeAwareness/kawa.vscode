@@ -3,7 +3,7 @@
   "displayName": "Code Awareness",
   "description": "Universal Context Platform.",
   "icon": "media/icons/caw-logo.png",
-  "version": "1.0.15",
+  "version": "2.0.0",
   "publisher": "CodeAwareness",
   "author": "Mark Vasile",
   "repository": "https://github.com/CodeAwareness/caw.vscode",
