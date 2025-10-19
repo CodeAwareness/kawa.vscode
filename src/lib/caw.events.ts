@@ -129,7 +129,7 @@ eventsTable['peer:select'] = (peer: any) => {
       const userFileUri = vscode.Uri.file(path.join(activeProject.root, fpath))
       logger.log('PEER DIFF', fpath, peerFileUri, userFileUri)
       // logger.info('OPEN DIFF with', fpath, info)
-      vscode.commands.executeCommand('vscode.diff', peerFileUri, userFileUri, info.title, { viewColumn: 1, preserveFocus: true })
+      vscode.commands.executeCommand('vscode.diff', userFileUri, peerFileUri, info.title, { viewColumn: 1, preserveFocus: true })
     })
 }
 
