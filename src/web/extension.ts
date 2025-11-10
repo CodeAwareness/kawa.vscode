@@ -17,6 +17,7 @@ import CAWEditor from '@/lib/caw.editor'
 import CAWWorkspace from '@/lib/caw.workspace'
 import CAWTDP from '@/lib/caw.tdp'
 import CAWIPC from '@/lib/caw.ipc'
+import CAWTranslation from '@/lib/caw.translation'
 
 let activated: boolean // extension activated !
 const deactivateTasks: Array<any> = [] // keeping track of all the disposables (TODO: cleanup)
@@ -32,6 +33,9 @@ export function deactivate() {
     CAWIPC.dispose(),
   ]
 
+  // Dispose translation layer
+  CAWTranslation.dispose()
+
   for (const task of deactivateTasks) {
     promises.push(task())
   }
@@ -45,6 +49,14 @@ function initCodeAwareness(context: vscode.ExtensionContext) {
   activated = true
   initConfig()
   CAWIPC.init()
+
+  // Initialize translation layer (after IPC is ready)
+  CAWTranslation.init().then(() => {
+    logger.log('Translation layer initialized')
+  }).catch((err) => {
+    logger.error('Failed to initialize translation layer:', err)
+  })
+
   setupCommands(context)
   setupWatchers(context)
   logger.info('CodeAwareness: extension activated (workspaceFolders)', vscode.workspace.workspaceFolders)
@@ -157,15 +169,30 @@ function setupWatchers(context: vscode.ExtensionContext) {
   /************************************************************************************
    * User saving the activeTextEditor
    ************************************************************************************/
-  subscriptions.push(vscode.workspace.onDidSaveTextDocument(doc => {
-    // TODO: some throttle mechanism to make sure we're only sending at most once per some configured interval
-    CAWIPC.transmit('file-saved', { fpath: doc.fileName, doc: doc.getText(), caw: CAWIPC.guid })
-      .then(CAWEditor.updateDecorations)
-      .then(CAWPanel.updateProject)
-      .then((project: any) => {
-        project.tree?.map(CAWTDP.addFile(project.root))
-        CAWTDP.refresh()
-      })
+  subscriptions.push(vscode.workspace.onDidSaveTextDocument(async (doc) => {
+    // Check if this document needs translation before save
+    const isTranslated = await CAWTranslation.saveTranslatedDocument(doc)
+
+    if (!isTranslated) {
+      // Normal save flow (no translation needed)
+      // TODO: some throttle mechanism to make sure we're only sending at most once per some configured interval
+      CAWIPC.transmit('file-saved', { fpath: doc.fileName, doc: doc.getText(), caw: CAWIPC.guid })
+        .then(CAWEditor.updateDecorations)
+        .then(CAWPanel.updateProject)
+        .then((project: any) => {
+          project.tree?.map(CAWTDP.addFile(project.root))
+          CAWTDP.refresh()
+        })
+    } else {
+      // Translation handled the save, still need to update decorations
+      CAWIPC.transmit('file-saved', { fpath: doc.fileName, doc: doc.getText(), caw: CAWIPC.guid })
+        .then(CAWEditor.updateDecorations)
+        .then(CAWPanel.updateProject)
+        .then((project: any) => {
+          project.tree?.map(CAWTDP.addFile(project.root))
+          CAWTDP.refresh()
+        })
+    }
   }))
 
   /************************************************************************************
@@ -183,6 +210,11 @@ function setupWatchers(context: vscode.ExtensionContext) {
     logger.log('ActiveTextEditor changed', editor.document.fileName)
     CAWEditor.setActiveEditor(editor as TCAWEditor)
     CAWWorkspace.refreshActiveFile()
+
+    // Translate document if user has non-English language preference
+    CAWTranslation.translateDocument(editor).catch((err) => {
+      logger.error('Failed to translate document:', err)
+    })
   })
 
   /************************************************************************************

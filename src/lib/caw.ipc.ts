@@ -38,7 +38,7 @@ const CAWIPC = {
         .then(CAWStatusbar.init)
     })
 
-    // here we treat only calls made with `transmit(..).then().catch()` 
+    // here we treat only calls made with `transmit(..).then().catch()`
     // but we also have an IPC processor inside the caw.events.ts, to respond to events not triggered by VSCode
     ipcClient.pubsub.on("response", (body: any) => {
       try {
@@ -47,18 +47,27 @@ const CAWIPC = {
         const errObj = typeof err === 'string' ? { err } : err
         const aidRes = `res:${domain}:${action}`
         const aidErr = `err:${domain}:${action}`
+
+        console.log('[CAWIPC] Received response:', aidRes, 'Has handler?', responseHandlers.has(aidRes))
+        if (action === 'read-file') {
+          console.log('[CAWIPC] read-file response data:', data)
+        }
+
         CAWEvents.processIPC(res)
 
         if (responseHandlers.has(aidRes)) {
           const resolve = responseHandlers.get(aidRes)!
           responseHandlers.delete(aidRes)
           responseHandlers.delete(aidErr)
+          console.log('[CAWIPC] Resolving promise with data:', data)
           resolve(data)
         } else if (responseHandlers.has(aidErr)) {
           const reject = responseHandlers.get(aidErr)!
           responseHandlers.delete(aidRes)
           responseHandlers.delete(aidErr)
           reject(data)
+        } else {
+          console.log('[CAWIPC] No handler found for:', aidRes)
         }
       } catch (err) {
         console.error("CAWIPC: Error processing response", err)
@@ -68,15 +77,25 @@ const CAWIPC = {
 
   /* Transmit an action, and perhaps some data. */
   transmit: function<T>(action: string, data?: any): Promise<any> {
-    const domain = (['auth:info', 'auth:login'].includes(action)) ? '*' : 'code'
+    // Determine domain based on action
+    let domain = 'code'
+    if (['auth:info', 'auth:login'].includes(action)) {
+      domain = '*'
+    } else if (['set-language', 'get-language'].includes(action)) {
+      domain = 'user'
+    }
+
     const flow = 'req'
     const aidRes = `res:${domain}:${action}`
     const aidErr = `err:${domain}:${action}`
     const caw = CAWIPC.guid
 
+    console.log('[CAWIPC] Transmitting:', action, 'Expecting response:', aidRes)
+
     return new Promise<T>((resolve, reject) => {
       responseHandlers.set(aidRes, resolve)
       responseHandlers.set(aidErr, reject)
+      console.log('[CAWIPC] Registered handlers for:', aidRes, aidErr)
       ipcClient.emit(JSON.stringify({ flow, domain, action, data, caw })) // also send data to the pipe
 
       // Timeout to reject if no response received

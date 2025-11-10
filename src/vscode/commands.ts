@@ -6,6 +6,8 @@ import logger from '@/lib/logger'
 import CAWPanel from '@/lib/caw.panel'
 import CAWIPC from '@/lib/caw.ipc'
 import CAWWorkspace from '@/lib/caw.workspace'
+import { CAWStatusbar } from '@/vscode/statusbar'
+import CAWTranslation from '@/lib/caw.translation'
 
 const { registerCommand } = vscode.commands
 
@@ -76,6 +78,62 @@ function setupCommands(context: vscode.ExtensionContext) {
   context.subscriptions.push(registerCommand('caw.selectRange', function() {
     logger.log('COMMAND: selectRange request received')
     // TODO: select a diff range (slice)
+  }))
+
+  context.subscriptions.push(registerCommand('caw.selectLanguage', async function() {
+    logger.log('COMMAND: selectLanguage request received')
+
+    // Language options with emoji flags
+    const languages = [
+      { label: '🇺🇸 English', value: 'en', description: 'Code in English' },
+      { label: '🇯🇵 日本語 (Japanese)', value: 'ja', description: 'コードを日本語で' },
+      { label: '🇪🇸 Español (Spanish)', value: 'es', description: 'Código en español' },
+      { label: '🇨🇳 中文 (Chinese)', value: 'zh', description: '用中文编码' },
+      { label: '🇸🇦 العربية (Arabic)', value: 'ar', description: 'البرمجة بالعربية' },
+    ]
+
+    // Show quick pick
+    const selected = await vscode.window.showQuickPick(languages, {
+      placeHolder: 'Select your preferred coding language',
+      title: 'Code Awareness: Language Selection'
+    })
+
+    if (selected) {
+      try {
+        // Send IPC message to Gardener
+        const response = await CAWIPC.transmit('set-language', { language: selected.value })
+
+        // Update translation module
+        CAWTranslation.setLanguage(selected.value)
+
+        // Update status bar
+        CAWStatusbar.updateLanguage(selected.value)
+
+        // Show success notification
+        vscode.window.showInformationMessage(
+          `Language changed to ${selected.label.split(' ')[1]}. Active file will reload.`
+        )
+
+        // Translate active editor if there is one
+        const activeEditor = vscode.window.activeTextEditor
+        if (activeEditor) {
+          // Translate the currently open document
+          await CAWTranslation.translateDocument(activeEditor)
+
+          // Also notify Gardener about the active file
+          const document = activeEditor.document
+          CAWIPC.transmit('active-path', {
+            wsFolder: vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath,
+            fpath: document.uri.fsPath
+          })
+        }
+
+        logger.log(`Language changed to: ${selected.value}`)
+      } catch (error) {
+        vscode.window.showErrorMessage(`Failed to change language: ${error}`)
+        logger.error('Failed to set language:', error)
+      }
+    }
   }))
 }
 

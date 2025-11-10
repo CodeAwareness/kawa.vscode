@@ -73,6 +73,11 @@
       {
         "command": "caw.openFile",
         "title": "%extension.openFile%"
+      },
+      {
+        "command": "caw.selectLanguage",
+        "title": "Code Awareness: Select Coding Language",
+        "category": "Code Awareness"
       }
     ],
     "keybindings": [
@@ -116,28 +121,25 @@
     "menus": {
       "commandPalette": [
         {
-          "command": "caw.toggle",
-          "when": "config.caw.enabled"
+          "command": "caw.toggle"
         },
         {
-          "command": "caw.nextPeer",
-          "when": "config.caw.enabled"
+          "command": "caw.nextPeer"
         },
         {
-          "command": "caw.prevPeer",
-          "when": "config.caw.enabled"
+          "command": "caw.prevPeer"
         },
         {
-          "command": "caw.mergeAll",
-          "when": "config.caw.enabled"
+          "command": "caw.mergeAll"
         },
         {
-          "command": "caw.mergeSlice",
-          "when": "config.caw.enabled"
+          "command": "caw.mergeSlice"
         },
         {
-          "command": "caw.selectRange",
-          "when": "config.caw.enabled"
+          "command": "caw.selectRange"
+        },
+        {
+          "command": "caw.selectLanguage"
         }
       ],
       "scm/resourceGroup/context": [
