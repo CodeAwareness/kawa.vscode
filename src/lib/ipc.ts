@@ -6,14 +6,13 @@ import { EventEmitter } from 'node:events'
 import logger from './logger'
 
 const id = os.hostname()
-const delimiter = '\f'
+const delimiter = '\n'  // Huginn IPC server expects newline-delimited messages
 const isWindows = os.platform() === 'win32'
 
 class IPC {
   // Use this pubsub to listen for responses to your emits
   public pubsub = new EventEmitter()
   public socket = null as Socket | null
-  public appspace = 'caw.'
   public socketRoot = isWindows ? '\\\\.\\pipe\\' : path.join(os.homedir(), '.kawa-code', 'sockets')
   public retryInterval = 2000 // retry connecting every 2 seconds
   public maxRetries = Infinity
@@ -23,8 +22,9 @@ class IPC {
   private ipcBuffer = '' as string
   private path = ''
 
-  constructor(guid: string) {
-    this.path = path.join(this.socketRoot, this.appspace + (guid || id))
+  constructor(socketName: string) {
+    // Connect directly to socket name without prefix (e.g., 'muninn' -> ~/.kawa-code/sockets/muninn)
+    this.path = path.join(this.socketRoot, socketName)
   }
 
   connect(callback?: any) {
@@ -94,10 +94,21 @@ class IPC {
       events.map(event => {
         if (!event) return
         const message = JSON.parse(event)
-        const { flow, domain, action, data, err } = message
-        if (action && ['res', 'err'].includes(flow)) {
-          logger.info(`IPC: resolved ${domain}:${action} with ${flow}`, data || err)
-          this.pubsub.emit('response', JSON.stringify({ flow, domain, action, data, err }))
+        const { domain, action, data, err } = message
+
+        // Handle handshake response from Huginn IPC server
+        if (domain === 'system' && action === 'handshake') {
+          logger.info('IPC: Received handshake response, CAW ID:', data?.caw)
+          this.pubsub.emit('handshake', data?.caw)
+          this.ipcBuffer = this.ipcBuffer.substring(event.length + 1)
+          return
+        }
+
+        // All other messages are responses from Gardener
+        if (action) {
+          const hasError = err !== undefined && err !== null
+          logger.info(`IPC: resolved ${domain}:${action} ${hasError ? 'with error' : 'successfully'}`, data || err)
+          this.pubsub.emit('response', JSON.stringify({ domain, action, data, err }))
         }
       })
 

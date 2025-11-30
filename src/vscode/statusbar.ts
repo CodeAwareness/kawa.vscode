@@ -23,7 +23,7 @@ export const CAWStatusbar = {
       CAWStatusbar.updateLanguage('en') // Default to English
 
       // Fetch actual language from Gardener
-      CAWIPC.transmit('get-language')
+      CAWIPC.transmit('user:get-language')
         .then((data: any) => {
           if (data && data.language) {
             CAWStatusbar.updateLanguage(data.language)

@@ -101,7 +101,7 @@ function setupCommands(context: vscode.ExtensionContext) {
     if (selected) {
       try {
         // Send IPC message to Gardener
-        const response = await CAWIPC.transmit('set-language', { language: selected.value })
+        const response = await CAWIPC.transmit('user:set-language', { language: selected.value })
 
         // Update translation module
         CAWTranslation.setLanguage(selected.value)

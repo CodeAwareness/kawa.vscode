@@ -4,6 +4,7 @@
 /* eslint-disable no-console */
 import config from '@/config'
 
+console.log('LOGGER LEVEL', config.LOG_LEVEL)
 /* eslint-disable @typescript-eslint/no-empty-function */
 if (config.LOG_LEVEL === 'none') {
   // test env

@@ -17,21 +17,39 @@ export const shortid = () => {
 /* We send a GUID with every request, such that multiple instances of VSCode can work independently;
  * TODO: perhaps allow different users logged into different VSCode instances? IS THIS SECURE? (it will require rewriting some of the local service)
  */
-const guid = shortid()
-const ipcClient = new IPC(guid) // FIFO pipe for operations
-const ipcCatalog = new IPC(config.PIPE_CATALOG) // the local service watches this file to connect to all clients
-const responseHandlers = new Map<string, Function>()
+let assignedCAW: string | null = null // CAW ID assigned by Huginn IPC server
+const ipcClient = new IPC('muninn') // Connect to Huginn IPC server at ~/.kawa-code/sockets/muninn
+const responseHandlers = new Map<string, { resolve: Function, reject: Function }>()
 
 const CAWIPC = {
-  guid,
+  get guid() {
+    return assignedCAW || 'unknown'
+  },
   ipcClient,
-  ipcCatalog,
 
   init: async function(): Promise<void> {
     ipcClient.pubsub.removeAllListeners()
-    ipcCatalog.connect()
-    ipcCatalog.pubsub.on('connected', () => {
-      ipcCatalog.emit(JSON.stringify({ flow: 'req', domain: '*', action: 'clientId', data: guid, caw: guid })) // add this client to the list of clients managed by the local service
+
+    // Connect to Huginn IPC server
+    ipcClient.connect()
+
+    ipcClient.pubsub.on('connected', () => {
+      console.log('[CAWIPC] Connected to Huginn IPC server, sending handshake...')
+
+      // Send handshake to get CAW ID
+      ipcClient.emit(JSON.stringify({
+        domain: 'system',
+        action: 'handshake',
+        data: { clientType: 'vscode' }
+      }))
+    })
+
+    // Listen for handshake response
+    ipcClient.pubsub.once('handshake', (cawId: string) => {
+      assignedCAW = cawId
+      console.log('[CAWIPC] Received CAW ID:', assignedCAW)
+
+      // Now proceed with initialization
       initServer()
         .then(() => CAWIPC.transmit('auth:info')) // ask for existing auth info, if any
         .then(CAWWorkspace.init)
@@ -43,31 +61,31 @@ const CAWIPC = {
     ipcClient.pubsub.on("response", (body: any) => {
       try {
         const res = body.length ? JSON.parse(body) : body
-        const { flow, domain, action, data, err } = res
+        const { domain, action, data, err } = res
         const errObj = typeof err === 'string' ? { err } : err
-        const aidRes = `res:${domain}:${action}`
-        const aidErr = `err:${domain}:${action}`
+        const aid = `${domain}:${action}`
 
-        console.log('[CAWIPC] Received response:', aidRes, 'Has handler?', responseHandlers.has(aidRes))
+        console.log('[CAWIPC] Received response:', aid, 'Has handler?', responseHandlers.has(aid))
         if (action === 'read-file') {
           console.log('[CAWIPC] read-file response data:', data)
         }
 
         CAWEvents.processIPC(res)
 
-        if (responseHandlers.has(aidRes)) {
-          const resolve = responseHandlers.get(aidRes)!
-          responseHandlers.delete(aidRes)
-          responseHandlers.delete(aidErr)
-          console.log('[CAWIPC] Resolving promise with data:', data)
-          resolve(data)
-        } else if (responseHandlers.has(aidErr)) {
-          const reject = responseHandlers.get(aidErr)!
-          responseHandlers.delete(aidRes)
-          responseHandlers.delete(aidErr)
-          reject(data)
+        // Check if this response has a handler
+        if (responseHandlers.has(aid)) {
+          const handler = responseHandlers.get(aid)!
+          responseHandlers.delete(aid)
+
+          if (err) {
+            console.log('[CAWIPC] Rejecting promise with error:', err)
+            handler.reject(errObj)
+          } else {
+            console.log('[CAWIPC] Resolving promise with data:', data)
+            handler.resolve(data)
+          }
         } else {
-          console.log('[CAWIPC] No handler found for:', aidRes)
+          console.log('[CAWIPC] No handler found for:', aid)
         }
       } catch (err) {
         console.error("CAWIPC: Error processing response", err)
@@ -77,33 +95,31 @@ const CAWIPC = {
 
   /* Transmit an action, and perhaps some data. */
   transmit: function<T>(action: string, data?: any): Promise<any> {
-    // Determine domain based on action
-    let domain = 'code'
-    if (['auth:info', 'auth:login'].includes(action)) {
-      domain = '*'
-    } else if (['set-language', 'get-language'].includes(action)) {
-      domain = 'user'
+    // Parse domain from action string (e.g., "auth:info" -> domain="auth", action="info")
+    let domain = 'code'  // default domain
+    let actualAction = action
+
+    if (action.includes(':')) {
+      const parts = action.split(':')
+      domain = parts[0]
+      actualAction = parts.slice(1).join(':')  // Handle cases like "repo:file:activate"
     }
 
-    const flow = 'req'
-    const aidRes = `res:${domain}:${action}`
-    const aidErr = `err:${domain}:${action}`
+    const aid = `${domain}:${actualAction}`
     const caw = CAWIPC.guid
 
-    console.log('[CAWIPC] Transmitting:', action, 'Expecting response:', aidRes)
+    console.log('[CAWIPC] Transmitting:', action, 'Expecting response:', aid)
 
     return new Promise<T>((resolve, reject) => {
-      responseHandlers.set(aidRes, resolve)
-      responseHandlers.set(aidErr, reject)
-      console.log('[CAWIPC] Registered handlers for:', aidRes, aidErr)
-      ipcClient.emit(JSON.stringify({ flow, domain, action, data, caw })) // also send data to the pipe
+      responseHandlers.set(aid, { resolve, reject })
+      console.log('[CAWIPC] Registered handler for:', aid)
+      ipcClient.emit(JSON.stringify({ domain, action: actualAction, data, caw })) // send to Huginn IPC server
 
       // Timeout to reject if no response received
       setTimeout(() => {
-        if (responseHandlers.has(aidRes) && responseHandlers.has(aidErr)) {
-          responseHandlers.delete(aidRes)
-          responseHandlers.delete(aidErr)
-          reject(new Error(`CAWIPC: Request timed out for ${flow}:${domain}:${action}`))
+        if (responseHandlers.has(aid)) {
+          responseHandlers.delete(aid)
+          reject(new Error(`CAWIPC: Request timed out for ${domain}:${action}`))
         }
       }, 20000)
     })
@@ -111,7 +127,7 @@ const CAWIPC = {
 
   dispose: function() {
     // TODO: cleanup IPC
-    return this.transmit('auth:disconnect')
+    // return this.transmit('auth:logout')
   },
 }
 

@@ -55,7 +55,6 @@ function setupTempFiles() {
 function setupSync() {
   const actionID = shortid()
   CAWIPC.ipcClient.emit(JSON.stringify({
-    flow: 'req',
     domain: 'code',
     action: 'sync:setup',
     caw: CAWIPC.guid,

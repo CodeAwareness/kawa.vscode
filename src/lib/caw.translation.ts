@@ -18,7 +18,7 @@ export const CAWTranslation = {
    */
   async init(): Promise<void> {
     try {
-      const response = await CAWIPC.transmit('get-language')
+      const response = await CAWIPC.transmit('user:get-language')
       if (response && response.language) {
         currentLanguage = response.language
         logger.log(`Translation: User language set to ${currentLanguage}`)

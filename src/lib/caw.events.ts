@@ -269,35 +269,50 @@ function setup(webview: any, context: any) {
 
 function processIPC(res: any) {
   try {
-    const { flow, domain, action, data, err } = res
-    switch (`${flow}:${domain}:${action}`) {
-      case 'res:code:sync:setup':
-        // TODO
-        break
-      case 'res:*:auth:login':
-        eventsTable['auth:login'](res.data)
-        break
-      case 'res:code:peer:select':
-        eventsTable['peer:select'](res.data)
-        break
-      case 'res:code:branch:select':
-        logger.log('VSCode received res:code:branch:select with data:', res.data)
-        eventsTable['branch:select'](res.data)
-        break
-      case 'res:code:context:open-rel':
-        eventsTable['context:open-rel'](res.data)
-        break
-      case 'res:code:open-peer-file':
-        eventsTable['open-peer-file'](res.data)
-        break
-      case 'err:code:branch:select':
-        logger.error('Branch diff error:', err)
-        vscode.window.showErrorMessage(`Branch diff failed: ${err}`)
-        break
-      case 'err:code:open-peer-file':
-        logger.error('Open peer file error:', err)
-        vscode.window.showErrorMessage(`Failed to open peer file: ${err}`)
-        break
+    const { domain, action, data, err } = res
+
+    // Check if this is an error response
+    if (err) {
+      // Handle error cases
+      switch (`${domain}:${action}`) {
+        case 'code:branch:select':
+        case 'branch:select':
+          logger.error('Branch diff error:', err)
+          vscode.window.showErrorMessage(`Branch diff failed: ${err}`)
+          break
+        case 'code:open-peer-file':
+          logger.error('Open peer file error:', err)
+          vscode.window.showErrorMessage(`Failed to open peer file: ${err}`)
+          break
+        default:
+          logger.error(`Error in ${domain}:${action}:`, err)
+          break
+      }
+    } else {
+      // Handle success cases
+      switch (`${domain}:${action}`) {
+        case 'code:sync:setup':
+          // TODO
+          break
+        case '*:auth:login':
+        case 'auth:login':
+          eventsTable['auth:login'](data)
+          break
+        case 'code:peer:select':
+          eventsTable['peer:select'](data)
+          break
+        case 'code:branch:select':
+        case 'branch:select':
+          logger.log('VSCode received branch:select with data:', data)
+          eventsTable['branch:select'](data)
+          break
+        case 'code:context:open-rel':
+          eventsTable['context:open-rel'](data)
+          break
+        case 'code:open-peer-file':
+          eventsTable['open-peer-file'](data)
+          break
+      }
     }
   } catch (err) {
     console.error("CAWEvents: Error processing response", err)
