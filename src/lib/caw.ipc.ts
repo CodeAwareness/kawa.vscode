@@ -1,6 +1,7 @@
 /******************************************************************
  * CodeAwareness Inter Process Communication with the Local Service
  ******************************************************************/
+import os from 'os'
 import IPC from '@/lib/ipc'
 import config from '@/config'
 import { CAWStatusbar } from '@/vscode/statusbar'
@@ -18,7 +19,10 @@ export const shortid = () => {
  * TODO: perhaps allow different users logged into different VSCode instances? IS THIS SECURE? (it will require rewriting some of the local service)
  */
 let assignedCAW: string | null = null // CAW ID assigned by Huginn IPC server
-const ipcClient = new IPC('muninn') // Connect to Huginn IPC server at ~/.kawa-code/sockets/muninn
+// On Windows: Uses catalog pipe (\\.\pipe\muninn.catalog), socketName is ignored
+// On Unix: Uses ~/.kawa-code/sockets/muninn
+const socketName = 'muninn' // Used only on Unix
+const ipcClient = new IPC(socketName)
 const responseHandlers = new Map<string, { resolve: Function, reject: Function }>()
 
 const CAWIPC = {
