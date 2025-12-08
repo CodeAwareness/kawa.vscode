@@ -110,7 +110,7 @@
         "command": "caw.mergeSlice",
         "key": "ctrl+alt+m",
         "mac": "cmd+alt+m"
-      },
+      }
     ],
     "views": {
       "explorer": [
