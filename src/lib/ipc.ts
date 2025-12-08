@@ -171,6 +171,8 @@ class IPC {
     socket.on('connect', () => {
       logger.log('IPC: Connected to dedicated pipe', this.dedicatedPipePath)
       this.retriesRemaining = this.maxRetries
+      // Clear the connection timeout once connected
+      socket.setTimeout(0)
       // Emit handshake event with CAW ID
       this.pubsub.emit('handshake', cawId)
       if (callback) callback()
@@ -270,6 +272,8 @@ class IPC {
       socket.on('connect', () => {
         logger.log('IPC: socket connected', this.path)
         this.retriesRemaining = this.maxRetries
+        // Clear the connection timeout once connected
+        socket.setTimeout(0)
         if (callback) callback()
       })
 

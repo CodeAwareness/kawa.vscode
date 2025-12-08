@@ -248,6 +248,10 @@ function setupWatchers(context: vscode.ExtensionContext) {
             const rel = `${currentSymbol.containerName || 'Global'}.${currentSymbol.name}`
             CAWIPC.transmit('context:select-lines', { fpath, selections, rel, caw: CAWIPC.guid })
               .then(CAWPanel.updateContext)
+              .catch((err) => {
+                // Silently ignore context:select-lines errors
+                console.debug('[CAW] Context select-lines error:', err)
+              })
           } else {
             // outside boundaries
           }

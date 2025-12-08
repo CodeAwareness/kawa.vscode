@@ -100,32 +100,12 @@ function setupCommands(context: vscode.ExtensionContext) {
 
     if (selected) {
       try {
-        // Send IPC message to Gardener
-        const response = await CAWIPC.transmit('user:set-language', { language: selected.value })
-
-        // Update translation module
         CAWTranslation.setLanguage(selected.value)
-
-        // Update status bar
         CAWStatusbar.updateLanguage(selected.value)
 
-        // Show success notification
-        vscode.window.showInformationMessage(
-          `Language changed to ${selected.label.split(' ')[1]}. Active file will reload.`
-        )
-
-        // Translate active editor if there is one
         const activeEditor = vscode.window.activeTextEditor
         if (activeEditor) {
-          // Translate the currently open document
           await CAWTranslation.translateDocument(activeEditor)
-
-          // Also notify Gardener about the active file
-          const document = activeEditor.document
-          CAWIPC.transmit('active-path', {
-            wsFolder: vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath,
-            fpath: document.uri.fsPath
-          })
         }
 
         logger.log(`Language changed to: ${selected.value}`)
@@ -133,6 +113,24 @@ function setupCommands(context: vscode.ExtensionContext) {
         vscode.window.showErrorMessage(`Failed to change language: ${error}`)
         logger.error('Failed to set language:', error)
       }
+    }
+  }))
+
+  // Translate current file to selected language
+  context.subscriptions.push(registerCommand('caw.translateToLanguage', async function() {
+    const editor = vscode.window.activeTextEditor
+    if (!editor) return
+
+    // Currently we only translate Typescript / Javascript files
+    if (!CAWTranslation.isSupportedFile(editor.document.uri.fsPath)) {
+      vscode.window.showWarningMessage('File type not supported for translation')
+      return
+    }
+
+    try {
+      await CAWTranslation.translateDocument(editor)
+    } catch (error) {
+      vscode.window.showErrorMessage(`Translation failed: ${error}`)
     }
   }))
 }

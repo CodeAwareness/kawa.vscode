@@ -14,18 +14,12 @@ let currentLanguage = 'en'
 
 export const CAWTranslation = {
   /**
-   * Initialize translation layer - fetch user's language preference
+   * Initialize translation layer
+   * Language preference is stored locally in the extension (defaults to 'en')
    */
   async init(): Promise<void> {
-    try {
-      const response = await CAWIPC.transmit('user:get-language')
-      if (response && response.language) {
-        currentLanguage = response.language
-        logger.log(`Translation: User language set to ${currentLanguage}`)
-      }
-    } catch (error) {
-      logger.error('Translation: Failed to get user language', error)
-    }
+    // Language defaults to 'en', user can change via caw.selectLanguage command
+    logger.log(`Translation: Initialized with language ${currentLanguage}`)
   },
 
   /**
@@ -43,43 +37,15 @@ export const CAWTranslation = {
   },
 
   /**
-   * Check if document is currently showing translated content
-   */
-  isTranslated(uri: vscode.Uri): boolean {
-    return translatedDocuments.has(uri.toString())
-  },
-
-  /**
-   * Mark document as translated
-   */
-  markAsTranslated(uri: vscode.Uri): void {
-    translatedDocuments.add(uri.toString())
-  },
-
-  /**
-   * Mark document as not translated
-   */
-  markAsUntranslated(uri: vscode.Uri): void {
-    translatedDocuments.delete(uri.toString())
-  },
-
-  /**
    * Translate document content after opening
    * Called when a file is activated
    */
   async translateDocument(editor: vscode.TextEditor): Promise<void> {
-    // Skip if language is English or no editor
-    if (currentLanguage === 'en' || !editor) {
-      return
-    }
-
     const document = editor.document
     const filePath = document.uri.fsPath
 
-    // Skip if not a supported file type
-    if (!CAWTranslation.isSupportedFile(filePath)) {
-      return
-    }
+    if (currentLanguage === 'en' || !editor) return
+    if (!CAWTranslation.isSupportedFile(filePath)) return
 
     try {
       logger.log(`Translation: Translating file to ${currentLanguage}: ${filePath}`)
@@ -87,24 +53,23 @@ export const CAWTranslation = {
       // Read English content from disk (the actual file content)
       const englishContent = document.getText()
 
-      // Request translated version from Gardener
-      console.log('[CAWTranslation] Sending read-file request for:', filePath)
-      const response = await CAWIPC.transmit('read-file', {
+      // Request translated version from i18n extension via domain-based routing
+      console.log('[CAWTranslation] Sending i18n:translate-code request for:', filePath)
+      const response = await CAWIPC.transmit('i18n:translate-code', {
+        code: englishContent,
         filePath: filePath,
-        repoId: null // TODO: get actual repoId from project
+        targetLang: currentLanguage,
       })
 
       console.log('[CAWTranslation] Received response:', response)
-      console.log('[CAWTranslation] Response type:', typeof response)
-      console.log('[CAWTranslation] Response has content?', response && 'content' in response)
 
-      if (response && response.content) {
+      if (response && response.success && response.code) {
         console.log('[CAWTranslation] Applying edit to document...')
         console.log('[CAWTranslation] English content length:', englishContent.length)
-        console.log('[CAWTranslation] Translated content length:', response.content.length)
+        console.log('[CAWTranslation] Translated content length:', response.code.length)
 
         // Show preview of translated content (first 300 chars)
-        const preview = response.content.substring(0, 300)
+        const preview = response.code.substring(0, 300)
         console.log('[CAWTranslation] Translated content preview:', preview)
         console.log('[CAWTranslation] Document URI:', document.uri.toString())
         console.log('[CAWTranslation] Document is closed?', document.isClosed)
@@ -117,7 +82,7 @@ export const CAWTranslation = {
         )
         console.log('[CAWTranslation] Full range:', fullRange.start.line, fullRange.start.character, '->', fullRange.end.line, fullRange.end.character)
 
-        edit.replace(document.uri, fullRange, response.content)
+        edit.replace(document.uri, fullRange, response.code)
         console.log('[CAWTranslation] Edit created, applying...')
 
         const success = await vscode.workspace.applyEdit(edit)
@@ -147,10 +112,7 @@ export const CAWTranslation = {
    * Called when user saves a file
    */
   async saveTranslatedDocument(document: vscode.TextDocument): Promise<boolean> {
-    // Skip if not translated
-    if (!CAWTranslation.isTranslated(document.uri)) {
-      return false // Let normal save proceed
-    }
+    if (currentLanguage === 'en') return false // Let normal save proceed
 
     const filePath = document.uri.fsPath
     const translatedContent = document.getText()
@@ -158,21 +120,21 @@ export const CAWTranslation = {
     try {
       logger.log(`Translation: Saving translated file back to English: ${filePath}`)
 
-      // Send translated content to Gardener's writeFile
-      // Gardener will translate back to English and write to disk
-      const response = await CAWIPC.transmit('write-file', {
+      const response = await CAWIPC.transmit('i18n:translate-code', {
+        code: translatedContent,
         filePath: filePath,
-        content: translatedContent,
-        repoId: null // TODO: get actual repoId from project
+        targetLang: 'en',
       })
 
-      if (response && response.success) {
-        logger.log('Translation: Successfully saved English content to disk')
+      if (response && response.success && response.code) {
+        logger.log('Translation: Successfully translated back to English')
 
-        // Mark as untranslated since the file now contains English
-        CAWTranslation.markAsUntranslated(document.uri)
+        // Write the English content to disk using VSCode API
+        const englishContent = response.code
+        const fileUri = document.uri
+        await vscode.workspace.fs.writeFile(fileUri, Buffer.from(englishContent, 'utf-8'))
 
-        // Re-read and translate again for continued editing
+        // TODO: maybe Re-read and translate again for continued editing
         const editor = vscode.window.activeTextEditor
         if (editor && editor.document.uri.toString() === document.uri.toString()) {
           // Small delay to let the file system settle
@@ -183,7 +145,7 @@ export const CAWTranslation = {
 
         return true // We handled the save
       } else {
-        throw new Error(response?.err || 'Write failed')
+        throw new Error(response?.error || 'Translation failed')
       }
     } catch (error) {
       logger.error(`Translation: Failed to save translated document: ${error}`)
