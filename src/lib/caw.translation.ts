@@ -89,11 +89,8 @@ export const CAWTranslation = {
         console.log('[CAWTranslation] Edit applied, success:', success)
 
         if (success) {
-          CAWTranslation.markAsTranslated(document.uri)
-          console.log('[CAWTranslation] Document marked as translated')
           logger.log(`Translation: Successfully translated document to ${currentLanguage}`)
         } else {
-          console.error('[CAWTranslation] Failed to apply edit!')
           logger.error('Translation: Failed to apply translated content')
         }
       } else {
