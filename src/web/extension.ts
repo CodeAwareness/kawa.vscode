@@ -97,7 +97,7 @@ const CAWDocumentContentProvider = {
     const peerFile = path.join(userDir, config.EXTRACT_REPO_DIR, uri)
     // logger.info('CodeAwareness: cawDocumentContentProvider uri', relativePath.path, 'peerFile', peerFile)
 
-    return CAWIPC.transmit('read-file', { fpath: peerFile })
+    return CAWIPC.transmit('repo:read-file', { fpath: peerFile })
       // TODO: find a better way to indicate deleted file, as opposed to new file created, as opposed to simply file not existing
       .catch(() => '') // if file not existing
   },

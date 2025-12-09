@@ -83,7 +83,6 @@ function highlight() {
 function addProject(project: TProject) {
   logger.log('WORKSPACE: addProject', project)
   CAWSCM.addProject(project)
-  // CAWTDP.addProject(project)
   if (~CAWStore.projects.findIndex(el => el.root === project.root)) CAWStore.projects.push(project)
   CAWStore.activeProject = project
   return project

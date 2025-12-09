@@ -42,6 +42,7 @@ const CAWIPC = {
 
       // Send handshake to get CAW ID
       ipcClient.emit(JSON.stringify({
+        flow: 'req',
         domain: 'system',
         action: 'handshake',
         data: { clientType: 'vscode' }
@@ -70,9 +71,6 @@ const CAWIPC = {
         const aid = `${domain}:${action}`
 
         console.log('[CAWIPC] Received response:', aid, 'Has handler?', responseHandlers.has(aid))
-        if (action === 'read-file') {
-          console.log('[CAWIPC] read-file response data:', data)
-        }
 
         CAWEvents.processIPC(res)
 
@@ -117,7 +115,7 @@ const CAWIPC = {
     return new Promise<T>((resolve, reject) => {
       responseHandlers.set(aid, { resolve, reject })
       console.log('[CAWIPC] Registered handler for:', aid)
-      ipcClient.emit(JSON.stringify({ domain, action: actualAction, data, caw })) // send to Huginn IPC server
+      ipcClient.emit(JSON.stringify({ flow: 'req', domain, action: actualAction, data, caw })) // send to Huginn IPC server
 
       // Timeout to reject if no response received
       setTimeout(() => {
