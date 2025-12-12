@@ -8,7 +8,7 @@ import { setupCommands } from '@/vscode/commands'
 import type { TCAWEditor } from '@/lib/caw.editor'
 
 import { initConfig } from '@/lib/settings'
-import { CAWStore } from '@/lib/caw.store'
+import CAWStore from '@/lib/caw.store'
 
 import config from '@/config'
 import logger from '@/lib/logger'
@@ -55,6 +55,57 @@ function initCodeAwareness(context: vscode.ExtensionContext) {
     logger.log('Translation layer initialized')
   }).catch((err) => {
     logger.error('Failed to initialize translation layer:', err)
+  })
+
+  // ⭐ NEW: Register callback to run after auth completes
+  // This ensures we only activate the file after authentication is successful
+  CAWIPC.onAuthReady(() => {
+    logger.log('Auth ready callback triggered')
+
+    // Check if there's an active editor that was open before extension activated
+    const activeEditor = vscode.window.activeTextEditor
+
+    logger.log('Checking for active editor after auth...')
+    logger.log('activeTextEditor:', activeEditor ? activeEditor.document.fileName : 'undefined')
+    logger.log('visibleTextEditors count:', vscode.window.visibleTextEditors.length)
+
+    if (activeEditor) {
+      logger.log('Active editor found, registering file:', activeEditor.document.fileName)
+
+      logger.log('Editor viewColumn:', activeEditor.viewColumn)
+      logger.log('Editor document uri scheme:', activeEditor.document.uri.scheme)
+
+      // Set the active editor in CAWEditor
+      CAWEditor.setActiveEditor(activeEditor as TCAWEditor)
+
+      // Send active-path to register the repository
+      logger.log('Calling refreshActiveFile()...')
+      try {
+        const result = CAWWorkspace.refreshActiveFile()
+        logger.log('refreshActiveFile() called, result:', result)
+
+        if (result) {
+          result
+            .then(() => {
+              logger.log('refreshActiveFile() completed successfully')
+
+              // Translate document if user has non-English language preference
+              CAWTranslation.translateDocument(activeEditor).catch((err) => {
+                logger.error('Failed to translate document:', err)
+              })
+            })
+            .catch((err: any) => {
+              logger.error('refreshActiveFile() failed:', err)
+            })
+        } else {
+          logger.log('refreshActiveFile() returned null/undefined - likely a diff editor or no active editor')
+        }
+      } catch (err) {
+        logger.error('refreshActiveFile() threw error:', err)
+      }
+    } else {
+      logger.log('No active editor found after auth')
+    }
   })
 
   setupCommands(context)

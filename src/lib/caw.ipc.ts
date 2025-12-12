@@ -24,12 +24,20 @@ let assignedCAW: string | null = null // CAW ID assigned by Huginn IPC server
 const socketName = 'muninn' // Used only on Unix
 const ipcClient = new IPC(socketName)
 const responseHandlers = new Map<string, { resolve: Function, reject: Function }>()
+let authReadyCallback: (() => void) | null = null // Callback when auth is complete
 
 const CAWIPC = {
   get guid() {
     return assignedCAW || 'unknown'
   },
   ipcClient,
+
+  /**
+   * Register a callback to be called when auth and initialization are complete
+   */
+  onAuthReady(callback: () => void) {
+    authReadyCallback = callback
+  },
 
   init: async function(): Promise<void> {
     ipcClient.pubsub.removeAllListeners()
@@ -59,6 +67,12 @@ const CAWIPC = {
         .then(() => CAWIPC.transmit('auth:info')) // ask for existing auth info, if any
         .then(CAWWorkspace.init)
         .then(CAWStatusbar.init)
+        .then(() => {
+          // ⭐ Notify that auth and initialization are complete
+          if (authReadyCallback) {
+            authReadyCallback()
+          }
+        })
     })
 
     // here we treat only calls made with `transmit(..).then().catch()`
@@ -98,7 +112,7 @@ const CAWIPC = {
   /* Transmit an action, and perhaps some data. */
   transmit: function<T>(action: string, data?: any): Promise<any> {
     // Parse domain from action string (e.g., "auth:info" -> domain="auth", action="info")
-    let domain = 'code'  // default domain
+    let domain = 'repo'  // default domain (changed from 'code' to 'repo')
     let actualAction = action
 
     if (action.includes(':')) {

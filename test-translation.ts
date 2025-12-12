@@ -3,6 +3,25 @@
  * This file contains common programming constructs for translation testing
  */
 
+// Type definitions
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface OrderItem {
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+interface Order {
+  orderId: string;
+  items: OrderItem[];
+  customer: User;
+}
+
 // Simple function
 function calculateTotal(price: number, quantity: number): number {
   const subtotal = price * quantity;

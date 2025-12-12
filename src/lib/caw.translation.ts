@@ -57,7 +57,7 @@ export const CAWTranslation = {
       console.log('[CAWTranslation] Sending i18n:translate-code request for:', filePath)
       const response = await CAWIPC.transmit('i18n:translate-code', {
         code: englishContent,
-        filePath: filePath,
+        filePath,
         targetLang: currentLanguage,
       })
 

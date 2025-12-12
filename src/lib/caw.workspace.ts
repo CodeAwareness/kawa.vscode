@@ -89,12 +89,31 @@ function addProject(project: TProject) {
 }
 
 function refreshActiveFile() {
-  if (CAWStore.activeTextEditor?.diffInformation) return // this is a diff, not a source file
-  logger.log('refreshing active file', CAWStore.activeTextEditor?.document.fileName)
-  if (!CAWStore.activeTextEditor) { logger.log('no active text editor'); return }
+  const editor = CAWStore.activeTextEditor
+  if (!editor) {
+    logger.log('no active text editor')
+    return
+  }
+
+  // Check if this is a diff or special view (not a regular source file)
+  const scheme = editor.document.uri.scheme
+  const isDiffOrSpecialView = scheme !== 'file' && scheme !== 'untitled'
+
+  logger.log('Editor scheme:', scheme, 'isDiffOrSpecialView:', isDiffOrSpecialView)
+
+  if (isDiffOrSpecialView) {
+    logger.log('Skipping refresh for diff/special view')
+    return
+  }
+
+  logger.log('refreshing active file', editor.document.fileName)
   const fpath = CAWEditor.getEditorDocFileName()
 
-  return CAWIPC.transmit<TProject>('active-path', { fpath, caw: CAWIPC.guid, doc: CAWStore.activeTextEditor.document.getText() })
+  return CAWIPC.transmit<TProject>('active-path', { fpath, caw: CAWIPC.guid, doc: CAWStore.activeTextEditor?.document?.getText() })
+    .then((response: any) => {
+      // Muninn wraps the project in a response object
+      return response.project || response
+    })
     .then(addProject)
     .then(CAWEditor.updateDecorations)
     .then(CAWPanel.updateProject)
