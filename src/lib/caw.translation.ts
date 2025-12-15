@@ -63,6 +63,13 @@ export const CAWTranslation = {
 
       console.log('[CAWTranslation] Received response:', response)
 
+      // Check if translation is happening in background
+      if (response && response.translating && !response.success) {
+        logger.log(`Translation: ${response.message || 'Translation initiated in background'}`)
+        // Don't apply any changes - user continues working in English
+        return
+      }
+
       if (response && response.success && response.code) {
         console.log('[CAWTranslation] Applying edit to document...')
         console.log('[CAWTranslation] English content length:', englishContent.length)

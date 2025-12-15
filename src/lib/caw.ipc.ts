@@ -110,7 +110,7 @@ const CAWIPC = {
   },
 
   /* Transmit an action, and perhaps some data. */
-  transmit: function<T>(action: string, data?: any): Promise<any> {
+  transmit: function<T>(action: string, data?: any, options?: { timeout?: number }): Promise<any> {
     // Parse domain from action string (e.g., "auth:info" -> domain="auth", action="info")
     let domain = 'repo'  // default domain (changed from 'code' to 'repo')
     let actualAction = action
@@ -132,12 +132,14 @@ const CAWIPC = {
       ipcClient.emit(JSON.stringify({ flow: 'req', domain, action: actualAction, data, caw })) // send to Huginn IPC server
 
       // Timeout to reject if no response received
+      // Default: 20 seconds, but caller can override for long-running operations
+      const timeoutMs = options?.timeout ?? 20000
       setTimeout(() => {
         if (responseHandlers.has(aid)) {
           responseHandlers.delete(aid)
-          reject(new Error(`CAWIPC: Request timed out for ${domain}:${action}`))
+          reject(new Error(`CAWIPC: Request timed out for ${aid}`))
         }
-      }, 20000)
+      }, timeoutMs)
     })
   },
 

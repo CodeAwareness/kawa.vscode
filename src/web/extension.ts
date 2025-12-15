@@ -59,7 +59,7 @@ function initCodeAwareness(context: vscode.ExtensionContext) {
 
   // ⭐ NEW: Register callback to run after auth completes
   // This ensures we only activate the file after authentication is successful
-  CAWIPC.onAuthReady(() => {
+  CAWIPC.onAuthReady(async () => {
     logger.log('Auth ready callback triggered')
 
     // Check if there's an active editor that was open before extension activated
@@ -78,7 +78,17 @@ function initCodeAwareness(context: vscode.ExtensionContext) {
       // Set the active editor in CAWEditor
       CAWEditor.setActiveEditor(activeEditor as TCAWEditor)
 
-      // Send active-path to register the repository
+      // Translate document FIRST if user has non-English language preference
+      // This ensures Muninn receives the translated content
+      logger.log('Translating document before refresh...')
+      try {
+        await CAWTranslation.translateDocument(activeEditor)
+        logger.log('Document translation completed')
+      } catch (err) {
+        logger.error('Failed to translate document:', err)
+      }
+
+      // Then send active-path to register the repository (after translation)
       logger.log('Calling refreshActiveFile()...')
       try {
         const result = CAWWorkspace.refreshActiveFile()
@@ -88,11 +98,6 @@ function initCodeAwareness(context: vscode.ExtensionContext) {
           result
             .then(() => {
               logger.log('refreshActiveFile() completed successfully')
-
-              // Translate document if user has non-English language preference
-              CAWTranslation.translateDocument(activeEditor).catch((err) => {
-                logger.error('Failed to translate document:', err)
-              })
             })
             .catch((err: any) => {
               logger.error('refreshActiveFile() failed:', err)
@@ -256,16 +261,21 @@ function setupWatchers(context: vscode.ExtensionContext) {
   /************************************************************************************
    * User switching to a different file
    ************************************************************************************/
-  vscode.window.onDidChangeActiveTextEditor((editor: vscode.TextEditor | undefined) => {
+  vscode.window.onDidChangeActiveTextEditor(async (editor: vscode.TextEditor | undefined) => {
     if (!editor) return
     logger.log('ActiveTextEditor changed', editor.document.fileName)
     CAWEditor.setActiveEditor(editor as TCAWEditor)
-    CAWWorkspace.refreshActiveFile()
 
-    // Translate document if user has non-English language preference
-    CAWTranslation.translateDocument(editor).catch((err) => {
+    // Translate document FIRST if user has non-English language preference
+    // This ensures Muninn receives the translated content
+    try {
+      await CAWTranslation.translateDocument(editor)
+    } catch (err) {
       logger.error('Failed to translate document:', err)
-    })
+    }
+
+    // Then refresh active file (after translation is applied)
+    CAWWorkspace.refreshActiveFile()
   })
 
   /************************************************************************************
