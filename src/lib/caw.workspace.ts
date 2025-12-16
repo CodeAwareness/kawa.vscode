@@ -16,6 +16,7 @@ import CAWTDP from '@/lib/caw.tdp'
 import { commands, Position, Range /*, CodeActionTriggerKind */ } from 'vscode'
 import CAWDeco from './caw.deco'
 import CAWEvents from './caw.events'
+import CAWTranslation from './caw.translation'
 
 // Sync actions from LS are defined here
 const actionTable: Record<string, any> = {
@@ -109,7 +110,12 @@ function refreshActiveFile() {
   logger.log('refreshing active file', editor.document.fileName)
   const fpath = CAWEditor.getEditorDocFileName()
 
-  return CAWIPC.transmit<TProject>('active-path', { fpath, caw: CAWIPC.guid, doc: CAWStore.activeTextEditor?.document?.getText() })
+  return CAWIPC.transmit<TProject>('active-path', {
+    fpath,
+    caw: CAWIPC.guid,
+    doc: CAWStore.activeTextEditor?.document?.getText(),
+    lang: CAWTranslation.getLanguage()  // Send current language for translation detection
+  })
     .then((response: any) => {
       // Muninn wraps the project in a response object
       return response.project || response
