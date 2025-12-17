@@ -118,7 +118,12 @@ function refreshActiveFile() {
   })
     .then((response: any) => {
       // Muninn wraps the project in a response object
-      return response.project || response
+      const project = response.project || response
+      // Map 'highlights' field to 'hl' field expected by the VSCode extension
+      if (project.highlights && !project.hl) {
+        project.hl = project.highlights
+      }
+      return project
     })
     .then(addProject)
     .then(CAWEditor.updateDecorations)
