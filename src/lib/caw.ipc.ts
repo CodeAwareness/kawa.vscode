@@ -112,7 +112,7 @@ const CAWIPC = {
   /* Transmit an action, and perhaps some data. */
   transmit: function<T>(action: string, data?: any, options?: { timeout?: number }): Promise<any> {
     // Parse domain from action string (e.g., "auth:info" -> domain="auth", action="info")
-    let domain = 'repo'  // default domain (changed from 'code' to 'repo')
+    let domain = 'code'  // default domain for code/file operations
     let actualAction = action
 
     if (action.includes(':')) {
