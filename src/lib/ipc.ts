@@ -22,7 +22,7 @@ class IPC {
   // Use this pubsub to listen for responses to your emits
   public pubsub = new EventEmitter()
   public socket = null as Socket | null
-  // On Windows, use catalog pipe: \\.\pipe\muninn.catalog, then dedicated pipe per client
+  // On Windows, use catalog pipe: \\.\pipe\muninn, then dedicated pipe per client
   // On Unix, use file-based socket: ~/.kawa-code/sockets/muninn
   public socketRoot = isWindows ? '\\\\.\\pipe\\' : path.join(os.homedir(), '.kawa-code', 'sockets')
   public retryInterval = 2000 // retry connecting every 2 seconds
@@ -40,7 +40,7 @@ class IPC {
     // On Windows, socketName is ignored - we use catalog pipe
     // On Unix, socketName is 'muninn' and path is ~/.kawa-code/sockets/muninn
     if (isWindows) {
-      this.path = path.join(this.socketRoot, 'muninn.catalog')
+      this.path = path.join(this.socketRoot, 'muninn')
       this.clientId = generateClientId()
     } else {
       this.path = path.join(this.socketRoot, socketName)
