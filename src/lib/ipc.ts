@@ -224,6 +224,9 @@ class IPC {
       }
 
       const events = this.ipcBuffer.split(delimiter)
+      // Preserve the last element
+      this.ipcBuffer = events.pop() || ''
+
       events.forEach(event => {
         if (!event) return
         try {
@@ -240,8 +243,6 @@ class IPC {
           logger.log('IPC: Failed to parse message:', e)
         }
       })
-
-      this.ipcBuffer = ''
     })
   }
 
@@ -322,6 +323,9 @@ class IPC {
         }
 
         const events = this.ipcBuffer.split(delimiter)
+        // Preserve the last element (either empty string or incomplete message)
+        this.ipcBuffer = events.pop() || ''
+
         events.forEach(event => {
           if (!event) return
           try {
@@ -346,8 +350,6 @@ class IPC {
             logger.log('IPC: Failed to parse message:', e)
           }
         })
-
-        this.ipcBuffer = ''
       })
     } catch (err: any) {
       logger.log('IPC: Failed to create connection:', err)
