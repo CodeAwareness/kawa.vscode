@@ -23,8 +23,9 @@ let assignedCAW: string | null = null // CAW ID assigned by Huginn IPC server
 // On Unix: Uses ~/.kawa-code/sockets/muninn
 const socketName = 'muninn' // Used only on Unix
 const ipcClient = new IPC(socketName)
-const responseHandlers = new Map<string, { resolve: Function, reject: Function }>()
+const responseHandlers = new Map<string, { resolve: Function, reject: Function, timeoutId: ReturnType<typeof setTimeout> }>()
 let authReadyCallback: (() => void) | null = null // Callback when auth is complete
+let resetListenerAdded = false // Prevent duplicate reset listeners
 
 const CAWIPC = {
   get guid() {
@@ -91,6 +92,8 @@ const CAWIPC = {
         // Check if this response has a handler
         if (responseHandlers.has(aid)) {
           const handler = responseHandlers.get(aid)!
+          // Clear the timeout to prevent memory leak
+          clearTimeout(handler.timeoutId)
           responseHandlers.delete(aid)
 
           if (err) {
@@ -127,25 +130,41 @@ const CAWIPC = {
     console.log('[CAWIPC] Transmitting:', action, 'Expecting response:', aid)
 
     return new Promise<T>((resolve, reject) => {
-      responseHandlers.set(aid, { resolve, reject })
-      console.log('[CAWIPC] Registered handler for:', aid)
-      ipcClient.emit(JSON.stringify({ flow: 'req', domain, action: actualAction, data, caw })) // send to Huginn IPC server
+      // Check if socket is connected before transmitting
+      if (!ipcClient.isConnected) {
+        console.log('[CAWIPC] Socket not connected, rejecting:', aid)
+        reject(new Error(`CAWIPC: Not connected to Muninn for ${aid}`))
+        return
+      }
 
       // Timeout to reject if no response received
       // Default: 20 seconds, but caller can override for long-running operations
       const timeoutMs = options?.timeout ?? 20000
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         if (responseHandlers.has(aid)) {
           responseHandlers.delete(aid)
           reject(new Error(`CAWIPC: Request timed out for ${aid}`))
         }
       }, timeoutMs)
+
+      responseHandlers.set(aid, { resolve, reject, timeoutId })
+      console.log('[CAWIPC] Registered handler for:', aid)
+      ipcClient.emit(JSON.stringify({ flow: 'req', domain, action: actualAction, data, caw })) // send to Huginn IPC server
     })
   },
 
   dispose: function() {
-    // TODO: cleanup IPC
-    // return this.transmit('auth:logout')
+    // Clear all pending response handlers to prevent memory leaks
+    for (const [aid, handler] of responseHandlers) {
+      clearTimeout(handler.timeoutId)
+      handler.reject(new Error(`CAWIPC: Disposed while waiting for ${aid}`))
+    }
+    responseHandlers.clear()
+
+    // Disconnect the IPC client
+    ipcClient.disconnect()
+    resetListenerAdded = false
+    assignedCAW = null
   },
 }
 
@@ -155,7 +174,11 @@ function initServer() {
       ipcClient.connect(() => {
         setTimeout(resolve, 2000)
       })
-      ipcClient.pubsub.on('reset', CAWIPC.init)
+      // Only add reset listener once to prevent accumulation
+      if (!resetListenerAdded) {
+        ipcClient.pubsub.on('reset', CAWIPC.init)
+        resetListenerAdded = true
+      }
     }, 2000) // let the VSCode and its extensions settle down, plus local service needs to create a client pipe connection
   })
 }

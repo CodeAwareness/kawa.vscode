@@ -279,7 +279,7 @@ function processIPC(res: any) {
           logger.error('Branch diff error:', err)
           vscode.window.showErrorMessage(`Branch diff failed: ${err}`)
           break
-        case 'repo:open-peer-file':
+        case 'code:open-peer-file':
           logger.error('Open peer file error:', err)
           vscode.window.showErrorMessage(`Failed to open peer file: ${err}`)
           break
@@ -297,7 +297,7 @@ function processIPC(res: any) {
         case 'auth:login':
           eventsTable['auth:login'](data)
           break
-        case 'repo:peer:select':
+        case 'code:peer:select':
           eventsTable['peer:select'](data)
           break
         case 'branch:select':
@@ -307,7 +307,7 @@ function processIPC(res: any) {
         case 'context:open-rel':
           eventsTable['context:open-rel'](data)
           break
-        case 'repo:open-peer-file':
+        case 'code:open-peer-file':
           eventsTable['open-peer-file'](data)
           break
       }

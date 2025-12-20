@@ -25,16 +25,18 @@ class IPC {
   // On Windows, use catalog pipe: \\.\pipe\muninn, then dedicated pipe per client
   // On Unix, use file-based socket: ~/.kawa-code/sockets/muninn
   public socketRoot = isWindows ? '\\\\.\\pipe\\' : path.join(os.homedir(), '.kawa-code', 'sockets')
-  public retryInterval = 2000 // retry connecting every 2 seconds
-  public maxRetries = Infinity
+  public baseRetryInterval = 2000 // base retry interval in ms
+  public maxRetryInterval = 60000 // max retry interval (60 seconds) for exponential backoff
+  public isConnected = false // track connection state for external checks
 
-  private retriesRemaining = Infinity
+  private currentRetryInterval = 2000 // current retry interval (grows with backoff)
   private explicitlyDisconnected = false
   private ipcBuffer = '' as string
   private path = ''
   private clientId: string | null = null
   private dedicatedPipePath: string | null = null
   private catalogSocket: Socket | null = null
+  private retryTimeout: ReturnType<typeof setTimeout> | null = null // track pending retry timeout
 
   constructor(socketName: string) {
     // On Windows, socketName is ignored - we use catalog pipe
@@ -51,8 +53,22 @@ class IPC {
     if (this.socket && !this.socket.destroyed) {
       return callback && callback() // already connected
     }
-    if (this.socket) this.socket.destroy()
-    if (this.catalogSocket) this.catalogSocket.destroy()
+
+    // Cancel any pending retry timeout
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout)
+      this.retryTimeout = null
+    }
+
+    // Properly cleanup old sockets
+    this.cleanupSocket(this.socket)
+    this.cleanupSocket(this.catalogSocket)
+    this.socket = null
+    this.catalogSocket = null
+
+    // Clear buffer on reconnect to prevent garbage accumulation
+    this.ipcBuffer = ''
+    this.isConnected = false
 
     if (isWindows) {
       // Windows: Use catalog pipe pattern
@@ -61,6 +77,63 @@ class IPC {
       // Unix: Direct socket connection
       this.connectDirect(callback)
     }
+  }
+
+  private cleanupSocket(socket: Socket | null) {
+    if (socket) {
+      socket.removeAllListeners()
+      if (!socket.destroyed) {
+        socket.destroy()
+      }
+    }
+  }
+
+  private scheduleRetry(callback?: any, connectFn?: () => void) {
+    if (this.explicitlyDisconnected) {
+      return
+    }
+
+    // Cancel any existing retry timeout
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout)
+    }
+
+    this.retryTimeout = setTimeout(() => {
+      this.retryTimeout = null
+      if (this.explicitlyDisconnected) {
+        return
+      }
+
+      // Exponential backoff: double the interval up to max
+      this.currentRetryInterval = Math.min(
+        this.currentRetryInterval * 2,
+        this.maxRetryInterval
+      )
+
+      if (connectFn) {
+        connectFn()
+      } else {
+        this.connect(callback)
+      }
+    }, this.currentRetryInterval)
+  }
+
+  disconnect() {
+    this.explicitlyDisconnected = true
+    this.isConnected = false
+
+    // Cancel pending retry
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout)
+      this.retryTimeout = null
+    }
+
+    // Cleanup sockets
+    this.cleanupSocket(this.socket)
+    this.cleanupSocket(this.catalogSocket)
+    this.socket = null
+    this.catalogSocket = null
+    this.ipcBuffer = ''
   }
 
   private connectViaCatalog(callback?: any) {
@@ -137,6 +210,8 @@ class IPC {
     
     catalogSocket.on('close', () => {
       logger.log('IPC: Catalog pipe closed')
+      // Schedule retry with exponential backoff
+      this.scheduleRetry(callback, () => this.connectViaCatalog(callback))
     })
   }
 
@@ -170,7 +245,9 @@ class IPC {
 
     socket.on('connect', () => {
       logger.log('IPC: Connected to dedicated pipe', this.dedicatedPipePath)
-      this.retriesRemaining = this.maxRetries
+      // Reset retry interval on successful connection
+      this.currentRetryInterval = this.baseRetryInterval
+      this.isConnected = true
       // Clear the connection timeout once connected
       socket.setTimeout(0)
       // Emit handshake event with CAW ID
@@ -197,22 +274,16 @@ class IPC {
     })
 
     socket.on('close', (exitCode: any) => {
-      logger.log('IPC: Dedicated pipe closed', this.dedicatedPipePath, this.retriesRemaining, 'tries remaining of', this.maxRetries, exitCode)
+      logger.log('IPC: Dedicated pipe closed', this.dedicatedPipePath, exitCode)
+      this.isConnected = false
 
-      if (this.retriesRemaining < 1 || this.explicitlyDisconnected) {
-        logger.log('IPC: connection failed. Exceeded the maximum retries.', this.dedicatedPipePath)
-        socket.destroy()
+      if (this.explicitlyDisconnected) {
+        logger.log('IPC: Explicitly disconnected, not retrying', this.dedicatedPipePath)
         return
       }
 
-      setTimeout(() => {
-        if (this.explicitlyDisconnected) {
-          return
-        }
-        this.retriesRemaining--
-        // Reconnect via catalog
-        this.connectViaCatalog(callback)
-      }, this.retryInterval)
+      // Schedule retry with exponential backoff, reconnect via catalog
+      this.scheduleRetry(callback, () => this.connectViaCatalog(callback))
     })
 
     socket.on('data', data => {
@@ -272,7 +343,9 @@ class IPC {
 
       socket.on('connect', () => {
         logger.log('IPC: socket connected', this.path)
-        this.retriesRemaining = this.maxRetries
+        // Reset retry interval on successful connection
+        this.currentRetryInterval = this.baseRetryInterval
+        this.isConnected = true
         // Clear the connection timeout once connected
         socket.setTimeout(0)
         if (callback) callback()
@@ -297,21 +370,16 @@ class IPC {
       })
 
       socket.on('close', (exitCode: any) => {
-        logger.log('IPC: connection closed', this.path, this.retriesRemaining, 'tries remaining of', this.maxRetries, exitCode)
+        logger.log('IPC: connection closed', this.path, exitCode)
+        this.isConnected = false
 
-        if (this.retriesRemaining < 1 || this.explicitlyDisconnected) {
-          logger.log('IPC: connection failed. Exceeded the maximum retries.', this.path)
-          socket.destroy()
+        if (this.explicitlyDisconnected) {
+          logger.log('IPC: Explicitly disconnected, not retrying', this.path)
           return
         }
 
-        setTimeout(() => {
-          if (this.explicitlyDisconnected) {
-            return
-          }
-          this.retriesRemaining--
-          this.connect()
-        }, this.retryInterval)
+        // Schedule retry with exponential backoff
+        this.scheduleRetry(callback)
       })
 
       socket.on('data', data => {
