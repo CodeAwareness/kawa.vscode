@@ -27,6 +27,7 @@ class IPC {
   public socketRoot = isWindows ? '\\\\.\\pipe\\' : path.join(os.homedir(), '.kawa-code', 'sockets')
   public retryInterval = 2000 // retry connecting every 2 seconds
   public maxRetries = Infinity
+  public initialRetryInterval = 3000 // retry initial connection every 3 seconds
 
   private retriesRemaining = Infinity
   private explicitlyDisconnected = false
@@ -35,6 +36,7 @@ class IPC {
   private clientId: string | null = null
   private dedicatedPipePath: string | null = null
   private catalogSocket: Socket | null = null
+  private retryTimer: NodeJS.Timeout | null = null
 
   constructor(socketName: string) {
     // On Windows, socketName is ignored - we use catalog pipe
@@ -51,8 +53,24 @@ class IPC {
     if (this.socket && !this.socket.destroyed) {
       return callback && callback() // already connected
     }
-    if (this.socket) this.socket.destroy()
-    if (this.catalogSocket) this.catalogSocket.destroy()
+
+    // Clear any pending retry
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer)
+      this.retryTimer = null
+    }
+
+    // Clean up existing sockets
+    if (this.socket) {
+      this.socket.removeAllListeners()
+      this.socket.destroy()
+      this.socket = null
+    }
+    if (this.catalogSocket) {
+      this.catalogSocket.removeAllListeners()
+      this.catalogSocket.destroy()
+      this.catalogSocket = null
+    }
 
     if (isWindows) {
       // Windows: Use catalog pipe pattern
@@ -63,18 +81,32 @@ class IPC {
     }
   }
 
+  private scheduleRetry(callback?: any) {
+    if (this.explicitlyDisconnected || this.retryTimer) {
+      return
+    }
+
+    logger.log('IPC: Scheduling retry in', this.initialRetryInterval, 'ms')
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null
+      if (!this.explicitlyDisconnected) {
+        this.connect(callback)
+      }
+    }, this.initialRetryInterval)
+  }
+
   private connectViaCatalog(callback?: any) {
     console.log('IPC: Connecting to catalog pipe:', this.path)
-    
+
     const catalogSocket = net.createConnection({ path: this.path })
     catalogSocket.setEncoding('utf8')
     this.catalogSocket = catalogSocket
-    
+
     let catalogBuffer = ''
-    
+
     catalogSocket.on('connect', () => {
       logger.log('IPC: Connected to catalog pipe')
-      
+
       // Send handshake with client ID
       const handshake = JSON.stringify({
         domain: 'system',
@@ -84,35 +116,36 @@ class IPC {
           clientId: this.clientId
         }
       })
-      
+
       catalogSocket.write(handshake + delimiter)
       logger.log('IPC: Sent handshake to catalog pipe with clientId:', this.clientId)
     })
-    
+
     catalogSocket.on('data', (data) => {
       catalogBuffer += data.toString()
-      
+
       if (catalogBuffer.indexOf(delimiter) === -1) {
         return
       }
-      
+
       const events = catalogBuffer.split(delimiter)
       events.forEach(event => {
         if (!event) return
-        
+
         try {
           const message = JSON.parse(event)
           if (message.domain === 'system' && message.action === 'handshake') {
             const { caw, pipePath } = message.data || {}
-            
+
             if (pipePath) {
               this.dedicatedPipePath = pipePath
               logger.log('IPC: Received catalog response, CAW ID:', caw, 'Pipe path:', pipePath)
-              
+
               // Close catalog socket
+              catalogSocket.removeAllListeners()
               catalogSocket.destroy()
               this.catalogSocket = null
-              
+
               // Wait 2 seconds for server to create pipe, then connect to dedicated pipe
               setTimeout(() => {
                 this.connectToDedicatedPipe(caw, callback)
@@ -126,15 +159,27 @@ class IPC {
           logger.log('IPC: Failed to parse catalog response:', e)
         }
       })
-      
+
       catalogBuffer = ''
     })
-    
+
     catalogSocket.on('error', (err: NodeJS.ErrnoException) => {
-      logger.log('IPC: Catalog pipe error:', err)
-      console.error('IPC: Catalog pipe error:', err)
+      logger.log('IPC: Catalog pipe error:', err.code)
+
+      // Clean up this socket
+      catalogSocket.removeAllListeners()
+      catalogSocket.destroy()
+      this.catalogSocket = null
+
+      // If Muninn is not running, schedule a retry
+      if (err.code === 'ENOENT' || err.code === 'ECONNREFUSED' || err.code === 'EPIPE') {
+        console.log('IPC: Muninn not available, will retry in', this.initialRetryInterval, 'ms')
+        this.scheduleRetry(callback)
+      } else {
+        console.error('IPC: Catalog pipe error:', err)
+      }
     })
-    
+
     catalogSocket.on('close', () => {
       logger.log('IPC: Catalog pipe closed')
     })
@@ -145,13 +190,13 @@ class IPC {
       logger.log('IPC: No dedicated pipe path available')
       return
     }
-    
+
     console.log('IPC: Connecting to dedicated pipe:', this.dedicatedPipePath)
-    
+
     const socket = net.createConnection({ path: this.dedicatedPipePath })
     socket.setEncoding('utf8')
     this.socket = socket
-    
+
     socket.setTimeout(5000) // 5 second timeout
 
     socket.on('error', (err: NodeJS.ErrnoException) => {
@@ -248,26 +293,38 @@ class IPC {
 
   private connectDirect(callback?: any) {
     console.log('IPC: Connecting directly to', this.path)
-    
+
     try {
       const socket = net.createConnection({ path: this.path })
       socket.setEncoding('utf8')
       this.socket = socket
-      
+
       socket.setTimeout(5000) // 5 second timeout
 
       socket.on('error', (err: NodeJS.ErrnoException) => {
-        logger.log('IPC: socket error: ', err)
-        const errorDetails: any = {
-          code: err.code,
-          errno: err.errno,
-          syscall: err.syscall,
-          message: err.message,
-          stack: err.stack
+        logger.log('IPC: socket error:', err.code)
+
+        // Clean up this socket
+        socket.removeAllListeners()
+        socket.destroy()
+        this.socket = null
+
+        // If Muninn is not running, schedule a retry
+        if (err.code === 'ENOENT' || err.code === 'ECONNREFUSED' || err.code === 'EPIPE') {
+          console.log('IPC: Muninn not available, will retry in', this.initialRetryInterval, 'ms')
+          this.scheduleRetry(callback)
+        } else {
+          const errorDetails: any = {
+            code: err.code,
+            errno: err.errno,
+            syscall: err.syscall,
+            message: err.message,
+            stack: err.stack
+          }
+          if ('address' in err) errorDetails.address = (err as any).address
+          if ('path' in err) errorDetails.path = (err as any).path
+          console.error('IPC: socket error details:', errorDetails)
         }
-        if ('address' in err) errorDetails.address = (err as any).address
-        if ('path' in err) errorDetails.path = (err as any).path
-        console.error('IPC: socket error details:', errorDetails)
       })
 
       socket.on('connect', () => {

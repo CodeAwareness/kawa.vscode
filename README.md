@@ -22,7 +22,7 @@ More information on our [website](https://codeawareness.com).
 
 Code Awareness allows you to see your peer's changes (diffs). When editing a file, you will see navy blue code highlights and also blue markers next to the scrollbar (the gutter indicators). These are the lines of code where other people have made changes to the file, locally in their own branch, or perhaps in the same branch. This is especially useful for a form of Trunk Based Development. When you open the Code Awareness panel (click on Code Awareness in the status bar), you'll be able to see the people who have made those changes. Click on their portrait to see the diffs between you and them. You can also click on any local branch (shown in the panel) to see the diffs between your file and the same file in that branch.
 
-### 1.0.15
+### 3.0.0
 
 Latest version
 
