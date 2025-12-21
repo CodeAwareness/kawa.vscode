@@ -80,12 +80,14 @@ function initCodeAwareness(context: vscode.ExtensionContext) {
 
       // Translate document FIRST if user has non-English language preference
       // This ensures Muninn receives the translated content
-      logger.log('Translating document before refresh...')
-      try {
-        await CAWTranslation.translateDocument(activeEditor)
-        logger.log('Document translation completed')
-      } catch (err) {
-        logger.error('Failed to translate document:', err)
+      if (CAWTranslation.getLanguage() !== 'en') {
+        logger.log('Translating document before refresh...')
+        try {
+          await CAWTranslation.translateDocument(activeEditor)
+          logger.log('Document translation completed')
+        } catch (err) {
+          logger.error('Failed to translate document:', err)
+        }
       }
 
       // Then send active-path to register the repository (after translation)
@@ -268,10 +270,12 @@ function setupWatchers(context: vscode.ExtensionContext) {
 
     // Translate document FIRST if user has non-English language preference
     // This ensures Muninn receives the translated content
-    try {
-      await CAWTranslation.translateDocument(editor)
-    } catch (err) {
-      logger.error('Failed to translate document:', err)
+    if (CAWTranslation.getLanguage() !== 'en') {
+      try {
+        await CAWTranslation.translateDocument(editor)
+      } catch (err) {
+        logger.error('Failed to translate document:', err)
+      }
     }
 
     // Then refresh active file (after translation is applied)

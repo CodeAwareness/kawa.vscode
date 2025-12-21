@@ -44,7 +44,7 @@ export const CAWTranslation = {
     const document = editor.document
     const filePath = document.uri.fsPath
 
-    if (currentLanguage === 'en' || !editor) return
+    if (!editor) return
     if (!CAWTranslation.isSupportedFile(filePath)) return
 
     try {
