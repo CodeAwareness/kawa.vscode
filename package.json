@@ -1,9 +1,9 @@
 {
   "name": "vscode-huggin",
-  "displayName": "Code Awareness",
+  "displayName": "Kawa Code",
   "description": "Universal Context Platform.",
   "icon": "media/icons/caw-logo.png",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "publisher": "CodeAwareness",
   "author": "Mark Vasile",
   "repository": "https://github.com/CodeAwareness/caw.vscode",
