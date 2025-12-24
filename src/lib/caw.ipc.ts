@@ -118,7 +118,7 @@ const CAWIPC = {
     if (action.includes(':')) {
       const parts = action.split(':')
       domain = parts[0]
-      actualAction = parts.slice(1).join(':')  // Handle cases like "repo:file:activate"
+      actualAction = parts.slice(1).join(':')  // Handle cases like "code:file:activate"
     }
 
     const aid = `${domain}:${actualAction}`
