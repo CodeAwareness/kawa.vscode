@@ -50,17 +50,18 @@ function initCodeAwareness(context: vscode.ExtensionContext) {
   initConfig()
   CAWIPC.init()
 
-  // Initialize translation layer (after IPC is ready)
-  CAWTranslation.init().then(() => {
-    logger.log('Translation layer initialized')
-  }).catch((err) => {
-    logger.error('Failed to initialize translation layer:', err)
-  })
-
-  // ⭐ NEW: Register callback to run after auth completes
-  // This ensures we only activate the file after authentication is successful
+  // ⭐ Register callback to run after auth/handshake completes
+  // This ensures CAW ID is assigned before we initialize other modules
   CAWIPC.onAuthReady(async () => {
-    logger.log('Auth ready callback triggered')
+    logger.log('Auth ready callback triggered, CAW:', CAWIPC.guid)
+
+    // Initialize translation layer now that CAW is assigned
+    try {
+      await CAWTranslation.init()
+      logger.log('Translation layer initialized')
+    } catch (err) {
+      logger.error('Failed to initialize translation layer:', err)
+    }
 
     // Check if there's an active editor that was open before extension activated
     const activeEditor = vscode.window.activeTextEditor
@@ -229,28 +230,27 @@ function setupWatchers(context: vscode.ExtensionContext) {
    ************************************************************************************/
   subscriptions.push(vscode.workspace.onDidSaveTextDocument(async (doc) => {
     // Check if this document needs translation before save
+    // If translated, saveTranslatedDocument handles everything:
+    // - Translates to English
+    // - Writes English to disk
+    // - Notifies Gardener with English content
+    // - Updates decorations and panel
     const isTranslated = await CAWTranslation.saveTranslatedDocument(doc)
 
-    if (!isTranslated) {
-      // Normal save flow (no translation needed)
-      // TODO: some throttle mechanism to make sure we're only sending at most once per some configured interval
-      CAWIPC.transmit('file-saved', { fpath: doc.fileName, doc: doc.getText(), caw: CAWIPC.guid })
-        .then(CAWEditor.updateDecorations)
-        .then(CAWPanel.updateProject)
-        .then((project: any) => {
-          project.tree?.map(CAWTDP.addFile(project.root))
-          CAWTDP.refresh()
-        })
-    } else {
-      // Translation handled the save, still need to update decorations
-      CAWIPC.transmit('file-saved', { fpath: doc.fileName, doc: doc.getText(), caw: CAWIPC.guid })
-        .then(CAWEditor.updateDecorations)
-        .then(CAWPanel.updateProject)
-        .then((project: any) => {
-          project.tree?.map(CAWTDP.addFile(project.root))
-          CAWTDP.refresh()
-        })
+    if (isTranslated) {
+      // Translation handled everything - nothing more to do
+      return
     }
+
+    // Normal save flow (no translation needed)
+    // TODO: some throttle mechanism to make sure we're only sending at most once per some configured interval
+    CAWIPC.transmit('file-saved', { fpath: doc.fileName, doc: doc.getText(), caw: CAWIPC.guid })
+      .then(CAWEditor.updateDecorations)
+      .then(CAWPanel.updateProject)
+      .then((project: any) => {
+        project.tree?.map(CAWTDP.addFile(project.root))
+        CAWTDP.refresh()
+      })
   }))
 
   /************************************************************************************
@@ -270,12 +270,20 @@ function setupWatchers(context: vscode.ExtensionContext) {
 
     // Translate document FIRST if user has non-English language preference
     // This ensures Muninn receives the translated content
-    if (CAWTranslation.getLanguage() !== 'en') {
+    const currentLang = CAWTranslation.getLanguage()
+    console.log('[Extension] File switch - current language:', currentLang, 'file:', editor.document.fileName)
+
+    if (currentLang !== 'en') {
+      console.log('[Extension] Language is non-English, translating document...')
       try {
         await CAWTranslation.translateDocument(editor)
+        console.log('[Extension] Translation complete for:', editor.document.fileName)
       } catch (err) {
         logger.error('Failed to translate document:', err)
+        console.error('[Extension] Translation error:', err)
       }
+    } else {
+      console.log('[Extension] Language is English, skipping translation')
     }
 
     // Then refresh active file (after translation is applied)
@@ -311,12 +319,14 @@ function setupWatchers(context: vscode.ExtensionContext) {
           const currentSymbol = findSymbolAtPosition(symbols, currentPosition)
           if (currentSymbol) {
             const rel = `${currentSymbol.containerName || 'Global'}.${currentSymbol.name}`
+            /* TODO: select lines event
             CAWIPC.transmit('context:select-lines', { fpath, selections, rel, caw: CAWIPC.guid })
               .then(CAWPanel.updateContext)
               .catch((err) => {
                 // Silently ignore context:select-lines errors
                 console.debug('[CAW] Context select-lines error:', err)
               })
+            */
           } else {
             // outside boundaries
           }

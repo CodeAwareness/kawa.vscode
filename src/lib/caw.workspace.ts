@@ -114,7 +114,6 @@ function refreshActiveFile() {
     fpath,
     caw: CAWIPC.guid,
     doc: CAWStore.activeTextEditor?.document?.getText(),
-    lang: CAWTranslation.getLanguage()  // Send current language for translation detection
   })
     .then((response: any) => {
       // Muninn wraps the project in a response object

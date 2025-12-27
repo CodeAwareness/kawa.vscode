@@ -103,6 +103,9 @@ function setupCommands(context: vscode.ExtensionContext) {
         CAWTranslation.setLanguage(selected.value)
         CAWStatusbar.updateLanguage(selected.value)
 
+        // Notify Muninn of language change so file-saved intercept works correctly
+        await CAWIPC.transmit('user:set-language', { language: selected.value })
+
         const activeEditor = vscode.window.activeTextEditor
         if (activeEditor) {
           await CAWTranslation.translateDocument(activeEditor)
