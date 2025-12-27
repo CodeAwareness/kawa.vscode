@@ -7,7 +7,13 @@ import CAWPanel from '@/lib/caw.panel'
 import CAWIPC from '@/lib/caw.ipc'
 import CAWWorkspace from '@/lib/caw.workspace'
 import { CAWStatusbar } from '@/vscode/statusbar'
-import CAWTranslation from '@/lib/caw.translation'
+
+// New translation module with FileSystemProvider
+import {
+  enableTranslationMode,
+  disableTranslationMode,
+  isTranslatableFile
+} from '@/lib/translation'
 
 const { registerCommand } = vscode.commands
 
@@ -85,7 +91,7 @@ function setupCommands(context: vscode.ExtensionContext) {
 
     // Language options with emoji flags
     const languages = [
-      { label: '🇺🇸 English', value: 'en', description: 'Code in English' },
+      { label: '🇺🇸 English', value: 'en', description: 'Code in English (no translation)' },
       { label: '🇯🇵 日本語 (Japanese)', value: 'ja', description: 'コードを日本語で' },
       { label: '🇪🇸 Español (Spanish)', value: 'es', description: 'Código en español' },
       { label: '🇨🇳 中文 (Chinese)', value: 'zh', description: '用中文编码' },
@@ -100,18 +106,17 @@ function setupCommands(context: vscode.ExtensionContext) {
 
     if (selected) {
       try {
-        CAWTranslation.setLanguage(selected.value)
+        // Update status bar
         CAWStatusbar.updateLanguage(selected.value)
 
-        // Notify Muninn of language change so file-saved intercept works correctly
-        await CAWIPC.transmit('user:set-language', { language: selected.value })
-
-        const activeEditor = vscode.window.activeTextEditor
-        if (activeEditor) {
-          await CAWTranslation.translateDocument(activeEditor)
+        // Enable or disable translation mode based on language selection
+        if (selected.value === 'en') {
+          await disableTranslationMode()
+          logger.log('Translation mode disabled (English selected)')
+        } else {
+          await enableTranslationMode(selected.value)
+          logger.log(`Translation mode enabled for: ${selected.value}`)
         }
-
-        logger.log(`Language changed to: ${selected.value}`)
       } catch (error) {
         vscode.window.showErrorMessage(`Failed to change language: ${error}`)
         logger.error('Failed to set language:', error)
@@ -119,22 +124,25 @@ function setupCommands(context: vscode.ExtensionContext) {
     }
   }))
 
-  // Translate current file to selected language
+  // Translate current file - now handled by translation mode
   context.subscriptions.push(registerCommand('caw.translateToLanguage', async function() {
     const editor = vscode.window.activeTextEditor
-    if (!editor) return
-
-    // Currently we only translate Typescript / Javascript files
-    if (!CAWTranslation.isSupportedFile(editor.document.uri.fsPath)) {
-      vscode.window.showWarningMessage('File type not supported for translation')
+    if (!editor) {
+      vscode.window.showInformationMessage('No active editor')
       return
     }
 
-    try {
-      await CAWTranslation.translateDocument(editor)
-    } catch (error) {
-      vscode.window.showErrorMessage(`Translation failed: ${error}`)
+    // Currently we only translate Typescript / Javascript files
+    if (!isTranslatableFile(editor.document.uri.fsPath)) {
+      vscode.window.showWarningMessage('File type not supported for translation. Supported: .js, .jsx, .ts, .tsx, .mjs, .cjs')
+      return
     }
+
+    // Translation is now automatic when a language other than English is selected
+    vscode.window.showInformationMessage(
+      'Use "Code Awareness: Select Language" command to enable translation mode. ' +
+      'Files will be automatically translated when opened.'
+    )
   }))
 }
 

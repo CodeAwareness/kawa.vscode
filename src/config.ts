@@ -18,6 +18,9 @@ const PORT_LOCAL = 8885
 // SCHEMA used by VSCode to handle repository, SCM, etc
 const CAW_SCHEMA = 'codeAwareness'
 
+// SCHEMA for translated file system (transparent translation layer)
+const TRANSLATED_SCHEMA = 'kawa-translated'
+
 // API version
 const SERVER_VERSION = 'v1'
 
@@ -53,4 +56,5 @@ export default {
   PORT_LOCAL,
   PROD_MEDIA,
   SERVER_VERSION,
+  TRANSLATED_SCHEMA,
 }

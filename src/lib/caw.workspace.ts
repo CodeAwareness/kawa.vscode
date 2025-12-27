@@ -16,7 +16,6 @@ import CAWTDP from '@/lib/caw.tdp'
 import { commands, Position, Range /*, CodeActionTriggerKind */ } from 'vscode'
 import CAWDeco from './caw.deco'
 import CAWEvents from './caw.events'
-import CAWTranslation from './caw.translation'
 
 // Sync actions from LS are defined here
 const actionTable: Record<string, any> = {
