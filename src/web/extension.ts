@@ -29,6 +29,10 @@ import {
 let activated: boolean // extension activated !
 const deactivateTasks: Array<any> = [] // keeping track of all the disposables (TODO: cleanup)
 
+// Debounce timer for cursor selection changes
+let selectionDebounceTimer: ReturnType<typeof setTimeout> | null = null
+const SELECTION_DEBOUNCE_MS = 150 // 150ms debounce for cursor movement
+
 export const SCM_PEER_FILES_VIEW = 'codeAwareness'
 
 export const activate = initCodeAwareness
@@ -279,6 +283,7 @@ function setupWatchers(context: vscode.ExtensionContext) {
 
   /************************************************************************************
    * User navigating to a line of code inside the activeTextEditor
+   * Sends select-lines signal to Muninn with debouncing to avoid excessive IPC calls
    ************************************************************************************/
   subscriptions.push(vscode.window.onDidChangeTextEditorSelection(event => {
     const { selections, textEditor } = event
@@ -287,27 +292,42 @@ function setupWatchers(context: vscode.ExtensionContext) {
     const currentPosition = new vscode.Position(currentLine, 0)
     const fpath = CAWStore.activeTextEditor?.document.fileName
 
+    // Only process for file:// scheme
+    if (document.uri.scheme !== 'file') return
+
     CAWStore.activeSelections = selections
-    // Get the symbol at the current position
-    vscode.commands.executeCommand('vscode.executeDocumentSymbolProvider', document.uri)
-      .then(symbols => {
-        if (symbols) {
-          const currentSymbol = findSymbolAtPosition(symbols, currentPosition)
-          if (currentSymbol) {
-            const rel = `${currentSymbol.containerName || 'Global'}.${currentSymbol.name}`
-            /* TODO: select lines event
-            CAWIPC.transmit('context:select-lines', { fpath, selections, rel, caw: CAWIPC.guid })
-              .then(CAWPanel.updateContext)
-              .catch((err) => {
-                // Silently ignore context:select-lines errors
-                console.debug('[CAW] Context select-lines error:', err)
-              })
-            */
-          } else {
-            // outside boundaries
+
+    // Debounce to avoid flooding during rapid cursor movement
+    if (selectionDebounceTimer) {
+      clearTimeout(selectionDebounceTimer)
+    }
+
+    selectionDebounceTimer = setTimeout(() => {
+      const lineNumber = currentLine + 1 // Convert to 1-based
+
+      // Get the symbol at the current position
+      vscode.commands.executeCommand('vscode.executeDocumentSymbolProvider', document.uri)
+        .then(symbols => {
+          let rel: string | undefined
+          if (symbols) {
+            const currentSymbol = findSymbolAtPosition(symbols, currentPosition)
+            if (currentSymbol) {
+              rel = `${currentSymbol.containerName || 'Global'}.${currentSymbol.name}`
+            }
           }
-        }
-      })
+
+          CAWIPC.transmit('context:select-lines', {
+            fpath,
+            selections,
+            lineNumber,
+            rel,
+            caw: CAWIPC.guid
+          }).catch((err) => {
+            // Silently ignore context:select-lines errors
+            console.debug('[CAW] Context select-lines error:', err)
+          })
+        })
+    }, SELECTION_DEBOUNCE_MS)
   }))
 
   /************************************************************************************
