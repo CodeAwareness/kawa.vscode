@@ -13,5 +13,5 @@
   "extension.selectRange": "Select diff range",
   "extension.toggle": "Toggle CodeAwareness panel",
   "caw.config.catalog": "Catalog file name. (used only during Muninn development)",
-  "caw.config.highlight_while_closed": "Show diff highlights even when Code Awareness panel is closed."
+  "caw.config.highlight_while_closed": "Show diff highlights even when Kawa Code panel is closed."
 }

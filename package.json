@@ -29,7 +29,7 @@
   "capabilities": {
     "virtualWorkspaces": {
       "supported": false,
-      "description": "Using Code Awareness is not currently possible in virtual workspaces."
+      "description": "Using Kawa Code is not currently possible in virtual workspaces."
     }
   },
   "contributes": {
@@ -76,13 +76,13 @@
       },
       {
         "command": "caw.selectLanguage",
-        "title": "Code Awareness: Select Coding Language",
-        "category": "Code Awareness"
+        "title": "Kawa Code: Select Coding Language",
+        "category": "Kawa Code"
       },
       {
         "command": "caw.translateToLanguage",
         "title": "Translate to Selected Language",
-        "category": "Code Awareness"
+        "category": "Kawa Code"
       }
     ],
     "keybindings": [
@@ -198,7 +198,7 @@
       ]
     },
     "configuration": {
-      "title": "Code Awareness",
+      "title": "Kawa Code",
       "properties": {
         "codeAwareness.catalog": {
           "type": "string",

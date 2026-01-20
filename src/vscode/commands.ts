@@ -101,7 +101,7 @@ function setupCommands(context: vscode.ExtensionContext) {
     // Show quick pick
     const selected = await vscode.window.showQuickPick(languages, {
       placeHolder: 'Select your preferred coding language',
-      title: 'Code Awareness: Language Selection'
+      title: 'Kawa Code: Language Selection'
     })
 
     if (selected) {
@@ -140,7 +140,7 @@ function setupCommands(context: vscode.ExtensionContext) {
 
     // Translation is now automatic when a language other than English is selected
     vscode.window.showInformationMessage(
-      'Use "Code Awareness: Select Language" command to enable translation mode. ' +
+      'Use "Kawa Code: Select Language" command to enable translation mode. ' +
       'Files will be automatically translated when opened.'
     )
   }))

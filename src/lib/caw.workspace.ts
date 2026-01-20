@@ -1,5 +1,5 @@
 /**************************
- * Code Awareness workspace
+ * Kawa Code workspace
  **************************/
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import logger from './logger'

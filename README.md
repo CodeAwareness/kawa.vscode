@@ -1,8 +1,8 @@
-# Code Awareness
+# Kawa Code
 
 Universal Context Platform.
 
-Code Awarenesss provides context for your work, in any application that supports a plugin, add-on, or extension system. With Code Awareness you can be aware of different levels of context, such as people working on your project, relationships between different parts, documents and chat messages relevant to the specific part you have on the screen, and more.
+Kawa Codes provides context for your work, in any application that supports a plugin, add-on, or extension system. With Kawa Code you can be aware of different levels of context, such as people working on your project, relationships between different parts, documents and chat messages relevant to the specific part you have on the screen, and more.
 
 More information on our [website](https://codeawareness.com).
 
@@ -16,11 +16,11 @@ More information on our [website](https://codeawareness.com).
 
 ## Requirements
 
-1. Download and install the [Code Awareness Muninn](https://codeawareness.com/) application. This is the application that shows you contextual information for the work you're doing in other applications.
+1. Download and install the [Kawa Code Muninn](https://codeawareness.com/) application. This is the application that shows you contextual information for the work you're doing in other applications.
 
 ## Release Notes
 
-Code Awareness allows you to see your peer's changes (diffs). When editing a file, you will see navy blue code highlights and also blue markers next to the scrollbar (the gutter indicators). These are the lines of code where other people have made changes to the file, locally in their own branch, or perhaps in the same branch. This is especially useful for a form of Trunk Based Development. When you open the Code Awareness panel (click on Code Awareness in the status bar), you'll be able to see the people who have made those changes. Click on their portrait to see the diffs between you and them. You can also click on any local branch (shown in the panel) to see the diffs between your file and the same file in that branch.
+Kawa Code allows you to see your peer's changes (diffs). When editing a file, you will see navy blue code highlights and also blue markers next to the scrollbar (the gutter indicators). These are the lines of code where other people have made changes to the file, locally in their own branch, or perhaps in the same branch. This is especially useful for a form of Trunk Based Development. When you open the Kawa Code panel (click on Kawa Code in the status bar), you'll be able to see the people who have made those changes. Click on their portrait to see the diffs between you and them. You can also click on any local branch (shown in the panel) to see the diffs between your file and the same file in that branch.
 
 ### 3.0.0
 
@@ -28,10 +28,10 @@ Latest version
 
 ### 1.0.7
 
-Launch of Muninn and Huginn system. You now have a separate application where you can see the context for your work, without having to open the Code Awareness panel in VSCode. You can keep the Code Awareness Muninn application open on one monitor while working with VSCode on another monitor.
+Launch of Muninn and Huginn system. You now have a separate application where you can see the context for your work, without having to open the Kawa Code panel in VSCode. You can keep the Kawa Code Muninn application open on one monitor while working with VSCode on another monitor.
 
 - simpler installation
-- solid foundations for extensibility of Code Awareness; expect a plugin system coming up soon.
+- solid foundations for extensibility of Kawa Code; expect a plugin system coming up soon.
 
 ### 1.0.0
 
@@ -51,10 +51,10 @@ First open-source release.
 
 ## Setup
 
-- install [Code Awareness VSCode panel](https://github.com/CodeAwareness/cA.vscode.panel)
+- install [Kawa Code VSCode panel](https://github.com/CodeAwareness/cA.vscode.panel)
 - in the src/lib/caw.panel.ts uncomment the getWebviewContentLocal line
-- Run your Code Awareness panel with `yarn dev`
-- Launch the Code Awareness Muninn application
+- Run your Kawa Code panel with `yarn dev`
+- Launch the Kawa Code Muninn application
 - Finally go to VSCode, open this extension source code folder, change `const DEBUG = true` in the `src/config` file, and choose Run Extension.
 
 ## Setup git to work with unicode in your filenames

@@ -45,7 +45,7 @@ function moveEditor(webviewPanel: vscode.WebviewPanel) {
 function createPanel(extensionPath: string) {
   CAWStore.panel = vscode.window.createWebviewPanel(
     'codeAwareness',
-    'Code Awareness',
+    'Kawa Code',
     panelColumn,
     {
       retainContextWhenHidden: true,

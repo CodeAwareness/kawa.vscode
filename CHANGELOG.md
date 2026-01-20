@@ -3,7 +3,7 @@
 ### 1.0.15
 
 Fixed diff-with-branch functionality.
-Compatibility with Kawa Code (new, rebranded version of Code Awareness).
+Compatibility with Kawa Code (new, rebranded version of Kawa Code).
 
 ### 1.0.14
 
@@ -23,10 +23,10 @@ Minor fix for IPC communication.
 
 ### 1.0.8
 
-Launch of Muninn and Huginn system. You now have a separate application where you can see the context for your work, without having to open the Code Awareness panel in VSCode. You can keep the Code Awareness Muninn application open on one monitor while working with VSCode on another monitor.
+Launch of Muninn and Huginn system. You now have a separate application where you can see the context for your work, without having to open the Kawa Code panel in VSCode. You can keep the Kawa Code Muninn application open on one monitor while working with VSCode on another monitor.
 
 - simpler installation, multiple monitor support through a dedicated application window.
-- solid foundations for extensibility of Code Awareness; expect a plugin system coming up soon.
+- solid foundations for extensibility of Kawa Code; expect a plugin system coming up soon.
 - an example extension shows relationships between the code you're looking at (cursor position) and the other parts of the project. This currently only works for Typescript code.
 
 ### 1.0.0

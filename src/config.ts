@@ -8,7 +8,7 @@ const cawConfig = vscode.workspace.getConfiguration('codeAwareness')
 const DEBUG = false // TODO: how to determine if we're running inside an extension host or as an installed extension
 const CATALOG_DEV = false
 
-const LOCAL_API = false // Code Awareness API
+const LOCAL_API = false // Kawa Code API
 
 const LOCAL_PANEL = false // VSCode webview panel
 
