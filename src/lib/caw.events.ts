@@ -117,19 +117,34 @@ eventsTable['peer:select'] = (peer: any) => {
     logger.log('peer:select: No active project available yet')
     return
   }
-  
+
   const { origin } = activeProject
   const fpath = activeProject.activePath
   if (!fpath) return
   const caw = CAWIPC.guid
   CAWIPC.transmit<TDiffResponse>('diff-peer', { origin, fpath, caw, peer })
-    .then((info) => {
+    .then((info: any) => {
+      // Check for error in response
+      if (info.error) {
+        logger.error('peer:select: diff-peer error:', info.error)
+        vscode.window.showErrorMessage(`Failed to get peer diff: ${info.error}`)
+        return
+      }
+      if (!info.peerFile) {
+        logger.error('peer:select: Missing peerFile in response:', info)
+        vscode.window.showErrorMessage('Failed to get peer diff: missing peer file path')
+        return
+      }
       const peerFileUri = vscode.Uri.file(info.peerFile)
       // Note: thanks to smart node:path for figuring out how to join Windows and *nix paths together.
       const userFileUri = vscode.Uri.file(path.join(activeProject.root, fpath))
       logger.log('PEER DIFF', fpath, peerFileUri, userFileUri)
       // logger.info('OPEN DIFF with', fpath, info)
       vscode.commands.executeCommand('vscode.diff', userFileUri, peerFileUri, info.title, { viewColumn: 1, preserveFocus: true })
+    })
+    .catch((err: any) => {
+      logger.error('peer:select: Failed to get peer diff:', err)
+      vscode.window.showErrorMessage(`Failed to get peer diff: ${err.message || err}`)
     })
 }
 

@@ -22,12 +22,11 @@ class IPC {
   // Use this pubsub to listen for responses to your emits
   public pubsub = new EventEmitter()
   public socket = null as Socket | null
-  // On Windows, use catalog pipe: \\.\pipe\muninn, then dedicated pipe per client
+  // On Windows, use catalog pipe: \\.\pipe\muninn.catalog, then dedicated pipe per client
   // On Unix, use file-based socket: ~/.kawa-code/sockets/muninn
   public socketRoot = isWindows ? '\\\\.\\pipe\\' : path.join(os.homedir(), '.kawa-code', 'sockets')
   public retryInterval = 2000 // retry connecting every 2 seconds
   public maxRetries = Infinity
-  public initialRetryInterval = 3000 // retry initial connection every 3 seconds
 
   private retriesRemaining = Infinity
   private explicitlyDisconnected = false
@@ -36,13 +35,16 @@ class IPC {
   private clientId: string | null = null
   private dedicatedPipePath: string | null = null
   private catalogSocket: Socket | null = null
-  private retryTimer: NodeJS.Timeout | null = null
+  private readPipePath: string | null = null  // Server writes, client reads
+  private writePipePath: string | null = null // Client writes, server reads
+  private readSocket: Socket | null = null    // For reading from server (Windows dual-pipe)
+  private writeSocket: Socket | null = null   // For writing to server (Windows dual-pipe)
 
   constructor(socketName: string) {
     // On Windows, socketName is ignored - we use catalog pipe
     // On Unix, socketName is 'muninn' and path is ~/.kawa-code/sockets/muninn
     if (isWindows) {
-      this.path = path.join(this.socketRoot, 'muninn')
+      this.path = path.join(this.socketRoot, 'muninn.catalog')
       this.clientId = generateClientId()
     } else {
       this.path = path.join(this.socketRoot, socketName)
@@ -53,24 +55,10 @@ class IPC {
     if (this.socket && !this.socket.destroyed) {
       return callback && callback() // already connected
     }
-
-    // Clear any pending retry
-    if (this.retryTimer) {
-      clearTimeout(this.retryTimer)
-      this.retryTimer = null
-    }
-
-    // Clean up existing sockets
-    if (this.socket) {
-      this.socket.removeAllListeners()
-      this.socket.destroy()
-      this.socket = null
-    }
-    if (this.catalogSocket) {
-      this.catalogSocket.removeAllListeners()
-      this.catalogSocket.destroy()
-      this.catalogSocket = null
-    }
+    if (this.socket) this.socket.destroy()
+    if (this.readSocket) this.readSocket.destroy()
+    if (this.writeSocket) this.writeSocket.destroy()
+    if (this.catalogSocket) this.catalogSocket.destroy()
 
     if (isWindows) {
       // Windows: Use catalog pipe pattern
@@ -81,32 +69,18 @@ class IPC {
     }
   }
 
-  private scheduleRetry(callback?: any) {
-    if (this.explicitlyDisconnected || this.retryTimer) {
-      return
-    }
-
-    logger.log('IPC: Scheduling retry in', this.initialRetryInterval, 'ms')
-    this.retryTimer = setTimeout(() => {
-      this.retryTimer = null
-      if (!this.explicitlyDisconnected) {
-        this.connect(callback)
-      }
-    }, this.initialRetryInterval)
-  }
-
   private connectViaCatalog(callback?: any) {
     console.log('IPC: Connecting to catalog pipe:', this.path)
-
+    
     const catalogSocket = net.createConnection({ path: this.path })
     catalogSocket.setEncoding('utf8')
     this.catalogSocket = catalogSocket
-
+    
     let catalogBuffer = ''
-
+    
     catalogSocket.on('connect', () => {
       logger.log('IPC: Connected to catalog pipe')
-
+      
       // Send handshake with client ID
       const handshake = JSON.stringify({
         domain: 'system',
@@ -116,36 +90,50 @@ class IPC {
           clientId: this.clientId
         }
       })
-
+      
       catalogSocket.write(handshake + delimiter)
       logger.log('IPC: Sent handshake to catalog pipe with clientId:', this.clientId)
     })
-
+    
     catalogSocket.on('data', (data) => {
       catalogBuffer += data.toString()
-
+      
       if (catalogBuffer.indexOf(delimiter) === -1) {
         return
       }
-
+      
       const events = catalogBuffer.split(delimiter)
       events.forEach(event => {
         if (!event) return
-
+        
         try {
           const message = JSON.parse(event)
           if (message.domain === 'system' && message.action === 'handshake') {
-            const { caw, pipePath } = message.data || {}
-
-            if (pipePath) {
-              this.dedicatedPipePath = pipePath
-              logger.log('IPC: Received catalog response, CAW ID:', caw, 'Pipe path:', pipePath)
-
+            const { caw, pipePath, readPipePath, writePipePath } = message.data || {}
+            
+            // Check for dual-pipe paths (new Windows implementation)
+            if (readPipePath && writePipePath) {
+              this.readPipePath = readPipePath
+              this.writePipePath = writePipePath
+              logger.log('IPC: Received catalog response with dual pipes, CAW ID:', caw, 'Read pipe:', readPipePath, 'Write pipe:', writePipePath)
+              
               // Close catalog socket
-              catalogSocket.removeAllListeners()
               catalogSocket.destroy()
               this.catalogSocket = null
-
+              
+              // Wait 2 seconds for server to create pipes, then connect to both
+              setTimeout(() => {
+                this.connectToDualPipes(caw, callback)
+              }, 2000)
+            } else if (pipePath) {
+              // Fallback to single pipe (backward compatibility)
+              this.dedicatedPipePath = pipePath
+              logger.log('IPC: Received catalog response, CAW ID:', caw, 'Pipe path:', pipePath)
+              
+              // Close catalog socket
+              catalogSocket.destroy()
+              this.catalogSocket = null
+              
               // Wait 2 seconds for server to create pipe, then connect to dedicated pipe
               setTimeout(() => {
                 this.connectToDedicatedPipe(caw, callback)
@@ -159,30 +147,150 @@ class IPC {
           logger.log('IPC: Failed to parse catalog response:', e)
         }
       })
-
+      
       catalogBuffer = ''
     })
-
+    
     catalogSocket.on('error', (err: NodeJS.ErrnoException) => {
-      logger.log('IPC: Catalog pipe error:', err.code)
-
-      // Clean up this socket
-      catalogSocket.removeAllListeners()
-      catalogSocket.destroy()
-      this.catalogSocket = null
-
-      // If Muninn is not running, schedule a retry
-      if (err.code === 'ENOENT' || err.code === 'ECONNREFUSED' || err.code === 'EPIPE') {
-        console.log('IPC: Muninn not available, will retry in', this.initialRetryInterval, 'ms')
-        this.scheduleRetry(callback)
-      } else {
-        console.error('IPC: Catalog pipe error:', err)
-      }
+      logger.log('IPC: Catalog pipe error:', err)
+      console.error('IPC: Catalog pipe error:', err)
     })
-
+    
     catalogSocket.on('close', () => {
       logger.log('IPC: Catalog pipe closed')
     })
+  }
+
+  private connectToDualPipes(cawId: string, callback?: any) {
+    if (!this.readPipePath || !this.writePipePath) {
+      logger.log('IPC: No dual pipe paths available')
+      return
+    }
+    
+    console.log('IPC: Connecting to dual pipes - Read:', this.readPipePath, 'Write:', this.writePipePath)
+    
+    // Create read socket (server writes here, client reads)
+    const readSocket = net.createConnection({ path: this.readPipePath })
+    readSocket.setEncoding('utf8')
+    this.readSocket = readSocket
+    
+    // Create write socket (client writes here, server reads)
+    const writeSocket = net.createConnection({ path: this.writePipePath })
+    writeSocket.setEncoding('utf8')
+    this.writeSocket = writeSocket
+    
+    // Store write socket as the main socket for emit() to use
+    this.socket = writeSocket
+    
+    let readConnected = false
+    let writeConnected = false
+    let connectionError: Error | null = null
+    
+    const checkReady = () => {
+      if (readConnected && writeConnected && !connectionError) {
+        logger.log('IPC: Both pipes connected')
+        this.retriesRemaining = this.maxRetries
+        // Emit handshake event with CAW ID
+        this.pubsub.emit('handshake', cawId)
+        if (callback) callback()
+      }
+    }
+    
+    const handleError = (err: NodeJS.ErrnoException, pipeName: string) => {
+      if (!connectionError) {
+        connectionError = err
+        logger.log(`IPC: ${pipeName} pipe error:`, err)
+        console.error(`IPC: ${pipeName} pipe error:`, err)
+        readSocket.destroy()
+        writeSocket.destroy()
+      }
+    }
+    
+    readSocket.setTimeout(5000)
+    writeSocket.setTimeout(5000)
+    
+    readSocket.on('connect', () => {
+      logger.log('IPC: Read pipe connected')
+      readSocket.setTimeout(0)
+      readConnected = true
+      checkReady()
+    })
+    
+    writeSocket.on('connect', () => {
+      logger.log('IPC: Write pipe connected')
+      writeSocket.setTimeout(0)
+      writeConnected = true
+      checkReady()
+    })
+    
+    readSocket.on('error', (err) => handleError(err, 'Read'))
+    writeSocket.on('error', (err) => handleError(err, 'Write'))
+    
+    readSocket.on('timeout', () => {
+      logger.log('IPC: Read pipe timeout')
+      readSocket.destroy()
+    })
+    
+    writeSocket.on('timeout', () => {
+      logger.log('IPC: Write pipe timeout')
+      writeSocket.destroy()
+    })
+    
+    readSocket.on('close', () => {
+      logger.log('IPC: Read pipe closed')
+      if (this.retriesRemaining >= 1 && !this.explicitlyDisconnected) {
+        this.retriesRemaining--
+        setTimeout(() => {
+          if (!this.explicitlyDisconnected) {
+            this.connectViaCatalog(callback)
+          }
+        }, this.retryInterval)
+      }
+    })
+    
+    writeSocket.on('close', () => {
+      logger.log('IPC: Write pipe closed')
+      if (this.retriesRemaining >= 1 && !this.explicitlyDisconnected) {
+        this.retriesRemaining--
+        setTimeout(() => {
+          if (!this.explicitlyDisconnected) {
+            this.connectViaCatalog(callback)
+          }
+        }, this.retryInterval)
+      }
+    })
+    
+    // Listen for data on read socket (server writes here)
+    readSocket.on('data', data => {
+      this.ipcBuffer += data.toString()
+
+      if (this.ipcBuffer.indexOf(delimiter) === -1) {
+        logger.log('IPC: Messages are pretty large, is this really necessary?')
+        return
+      }
+
+      const events = this.ipcBuffer.split(delimiter)
+      events.forEach(event => {
+        if (!event) return
+        try {
+          const message = JSON.parse(event)
+          const { domain, action, data, err } = message
+
+          // All messages are responses from Gardener
+          if (action) {
+            const hasError = err !== undefined && err !== null
+            logger.info(`IPC: resolved ${domain}:${action} ${hasError ? 'with error' : 'successfully'}`, data || err)
+            this.pubsub.emit('response', JSON.stringify({ domain, action, data, err }))
+          }
+        } catch (e) {
+          logger.log('IPC: Failed to parse message:', e)
+        }
+      })
+
+      this.ipcBuffer = ''
+    })
+    
+    this.pubsub.emit('connected')
   }
 
   private connectToDedicatedPipe(cawId: string, callback?: any) {
@@ -190,13 +298,13 @@ class IPC {
       logger.log('IPC: No dedicated pipe path available')
       return
     }
-
+    
     console.log('IPC: Connecting to dedicated pipe:', this.dedicatedPipePath)
-
+    
     const socket = net.createConnection({ path: this.dedicatedPipePath })
     socket.setEncoding('utf8')
     this.socket = socket
-
+    
     socket.setTimeout(5000) // 5 second timeout
 
     socket.on('error', (err: NodeJS.ErrnoException) => {
@@ -269,9 +377,6 @@ class IPC {
       }
 
       const events = this.ipcBuffer.split(delimiter)
-      // Preserve the last element
-      this.ipcBuffer = events.pop() || ''
-
       events.forEach(event => {
         if (!event) return
         try {
@@ -288,43 +393,33 @@ class IPC {
           logger.log('IPC: Failed to parse message:', e)
         }
       })
+
+      this.ipcBuffer = ''
     })
   }
 
   private connectDirect(callback?: any) {
     console.log('IPC: Connecting directly to', this.path)
-
+    
     try {
       const socket = net.createConnection({ path: this.path })
       socket.setEncoding('utf8')
       this.socket = socket
-
+      
       socket.setTimeout(5000) // 5 second timeout
 
       socket.on('error', (err: NodeJS.ErrnoException) => {
-        logger.log('IPC: socket error:', err.code)
-
-        // Clean up this socket
-        socket.removeAllListeners()
-        socket.destroy()
-        this.socket = null
-
-        // If Muninn is not running, schedule a retry
-        if (err.code === 'ENOENT' || err.code === 'ECONNREFUSED' || err.code === 'EPIPE') {
-          console.log('IPC: Muninn not available, will retry in', this.initialRetryInterval, 'ms')
-          this.scheduleRetry(callback)
-        } else {
-          const errorDetails: any = {
-            code: err.code,
-            errno: err.errno,
-            syscall: err.syscall,
-            message: err.message,
-            stack: err.stack
-          }
-          if ('address' in err) errorDetails.address = (err as any).address
-          if ('path' in err) errorDetails.path = (err as any).path
-          console.error('IPC: socket error details:', errorDetails)
+        logger.log('IPC: socket error: ', err)
+        const errorDetails: any = {
+          code: err.code,
+          errno: err.errno,
+          syscall: err.syscall,
+          message: err.message,
+          stack: err.stack
         }
+        if ('address' in err) errorDetails.address = (err as any).address
+        if ('path' in err) errorDetails.path = (err as any).path
+        console.error('IPC: socket error details:', errorDetails)
       })
 
       socket.on('connect', () => {
@@ -380,9 +475,6 @@ class IPC {
         }
 
         const events = this.ipcBuffer.split(delimiter)
-        // Preserve the last element (either empty string or incomplete message)
-        this.ipcBuffer = events.pop() || ''
-
         events.forEach(event => {
           if (!event) return
           try {
@@ -407,6 +499,8 @@ class IPC {
             logger.log('IPC: Failed to parse message:', e)
           }
         })
+
+        this.ipcBuffer = ''
       })
     } catch (err: any) {
       logger.log('IPC: Failed to create connection:', err)
@@ -415,12 +509,15 @@ class IPC {
   }
 
   emit(message: string) {
-    if (!this.socket) {
+    // On Windows with dual pipes, use writeSocket; otherwise use socket
+    const socketToUse = (isWindows && this.writeSocket) ? this.writeSocket : this.socket
+    
+    if (!socketToUse) {
       logger.log('IPC: cannot dispatch event. No socket for', this.path)
       return
     }
     logger.log('IPC: dispatching event to ', this.path, ' : ', message.substring(0, 256))
-    this.socket.write(message + delimiter)
+    socketToUse.write(message + delimiter)
   }
 }
 
