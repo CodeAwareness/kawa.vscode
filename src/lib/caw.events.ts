@@ -75,7 +75,13 @@ eventsTable['branch:select'] = (branchOrData: string | any) => {
     // Case 1: Branch name from webview
     logger.log('branch:select Case 1: String branch name')
     const caw = CAWIPC.guid
-    CAWIPC.transmit('branch:select', { branch: branchOrData, caw })
+    const fpath = CAWStore.activeProject?.activePath
+    if (!fpath) {
+      logger.error('branch:select: No active file to compare')
+      vscode.window.showErrorMessage('No active file to compare. Please open a file first.')
+      return
+    }
+    CAWIPC.transmit('branch:select', { branch: branchOrData, caw, fpath })
       .then((info: any) => {
         const peerFileUri = vscode.Uri.file(info.peerFile)
         const userFileUri = vscode.Uri.file(info.userFile)
@@ -290,7 +296,7 @@ function processIPC(res: any) {
     if (err) {
       // Handle error cases
       switch (`${domain}:${action}`) {
-        case 'branch:select':
+        case 'code:branch:select':
           logger.error('Branch diff error:', err)
           vscode.window.showErrorMessage(`Branch diff failed: ${err}`)
           break
@@ -315,8 +321,8 @@ function processIPC(res: any) {
         case 'code:peer:select':
           eventsTable['peer:select'](data)
           break
-        case 'branch:select':
-          logger.log('VSCode received branch:select with data:', data)
+        case 'code:branch:select':
+          logger.log('VSCode received code:branch:select with data:', data)
           eventsTable['branch:select'](data)
           break
         case 'context:open-rel':
