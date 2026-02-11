@@ -44,7 +44,7 @@ class IPC {
     // On Windows, socketName is ignored - we use catalog pipe
     // On Unix, socketName is 'muninn' and path is ~/.kawa-code/sockets/muninn
     if (isWindows) {
-      this.path = path.join(this.socketRoot, 'muninn.catalog')
+      this.path = path.join(this.socketRoot, 'muninn')
       this.clientId = generateClientId()
     } else {
       this.path = path.join(this.socketRoot, socketName)
