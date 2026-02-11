@@ -20,7 +20,9 @@ More information on our [website](https://codeawareness.com).
 
 ## Release Notes
 
-Kawa Code allows you to see your peer's changes (diffs). When editing a file, you will see navy blue code highlights and also blue markers next to the scrollbar (the gutter indicators). These are the lines of code where other people have made changes to the file, locally in their own branch, or perhaps in the same branch. This is especially useful for a form of Trunk Based Development. When you open the Kawa Code panel (click on Kawa Code in the status bar), you'll be able to see the people who have made those changes. Click on their portrait to see the diffs between you and them. You can also click on any local branch (shown in the panel) to see the diffs between your file and the same file in that branch.
+Kawa Code allows you to see your peer's changes (diffs). When editing a file, you will see navy blue code highlights and also blue markers next to the scrollbar (the gutter indicators). These are the lines of code where other people have made changes to the file, locally in their own branch, or perhaps in the same branch. This is especially useful for a form of Trunk Based Development. When you open the Kawa Code, you'll be able to see the people who have made those changes. Click on their portrait to see the diffs between you and them. You can also click on any local branch (shown in the panel) to see the diffs between your file and the same file in that branch.
+
+In addition, by configuring your Claude Code API key, you can take advantage of our new Intent-driven development (beta), which is a new way to record decisions made during AI-assisted development.
 
 ### 4.0.0
 
@@ -53,8 +55,6 @@ First open-source release.
 
 ## Setup
 
-- install [Kawa Code VSCode panel](https://github.com/CodeAwareness/cA.vscode.panel)
-- in the src/lib/caw.panel.ts uncomment the getWebviewContentLocal line
 - Run your Kawa Code panel with `yarn dev`
 - Launch the Kawa Code Muninn application
 - Finally go to VSCode, open this extension source code folder, change `const DEBUG = true` in the `src/config` file, and choose Run Extension.
