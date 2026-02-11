@@ -13,26 +13,27 @@ export const CAWStatusbar = {
       statusBarItem.show()
     }
 
-    if (!languageStatusBarItem) {
-      languageStatusBarItem = window.createStatusBarItem(StatusBarAlignment.Right, 99)
-      languageStatusBarItem.command = 'caw.selectLanguage'
-      languageStatusBarItem.tooltip = 'Click to change coding language'
-      languageStatusBarItem.show()
+    // Language switcher disabled - translation functionality moved to Kawa Code app
+    // if (!languageStatusBarItem) {
+    //   languageStatusBarItem = window.createStatusBarItem(StatusBarAlignment.Right, 99)
+    //   languageStatusBarItem.command = 'caw.selectLanguage'
+    //   languageStatusBarItem.tooltip = 'Click to change coding language'
+    //   languageStatusBarItem.show()
 
-      // Initialize with current language
-      CAWStatusbar.updateLanguage('en') // Default to English
+    //   // Initialize with current language
+    //   CAWStatusbar.updateLanguage('en') // Default to English
 
-      // Fetch actual language from Gardener
-      CAWIPC.transmit('user:get-language')
-        .then((data: any) => {
-          if (data && data.language) {
-            CAWStatusbar.updateLanguage(data.language)
-          }
-        })
-        .catch(() => {
-          // If fetch fails, keep default
-        })
-    }
+    //   // Fetch actual language from Gardener
+    //   CAWIPC.transmit('user:get-language')
+    //     .then((data: any) => {
+    //       if (data && data.language) {
+    //         CAWStatusbar.updateLanguage(data.language)
+    //       }
+    //     })
+    //     .catch(() => {
+    //       // If fetch fails, keep default
+    //     })
+    // }
 
     CAWStatusbar.working('loading...') // TODO: this doesn't work. Is it an older API?
     CAWStatusbar.live()
@@ -45,39 +46,42 @@ export const CAWStatusbar = {
 
   live: () => {
     statusBarItem.text = 'CodeAwareness'
-    statusBarItem.command = 'caw.toggle'
-    statusBarItem.tooltip = 'Toggle CodeAwareness panel'
+    // Panel toggle removed - UI now handled by Kawa Code app
+    // statusBarItem.command = 'caw.toggle'
+    statusBarItem.tooltip = 'CodeAwareness extension is active'
   },
 
   updateLanguage: (language: string) => {
-    if (!languageStatusBarItem) return
+    // Language switcher disabled - translation functionality moved to Kawa Code app
+    // if (!languageStatusBarItem) return
 
-    const languageLabels: Record<string, string> = {
-      en: '🇺🇸 EN',
-      ja: '🇯🇵 JA',
-      es: '🇪🇸 ES',
-      zh: '🇨🇳 ZH',
-      ar: '🇸🇦 AR',
-    }
+    // const languageLabels: Record<string, string> = {
+    //   en: '🇺🇸 EN',
+    //   ja: '🇯🇵 JA',
+    //   es: '🇪🇸 ES',
+    //   zh: '🇨🇳 ZH',
+    //   ar: '🇸🇦 AR',
+    // }
 
-    const languageNames: Record<string, string> = {
-      en: 'English',
-      ja: '日本語',
-      es: 'Español',
-      zh: '中文',
-      ar: 'العربية',
-    }
+    // const languageNames: Record<string, string> = {
+    //   en: 'English',
+    //   ja: '日本語',
+    //   es: 'Español',
+    //   zh: '中文',
+    //   ar: 'العربية',
+    // }
 
-    languageStatusBarItem.text = languageLabels[language] || '🌐 ??'
-    languageStatusBarItem.tooltip = `Coding Language: ${languageNames[language] || language} (click to change)`
+    // languageStatusBarItem.text = languageLabels[language] || '🌐 ??'
+    // languageStatusBarItem.tooltip = `Coding Language: ${languageNames[language] || language} (click to change)`
   },
 
   dispose: () => {
     if (statusBarItem) {
       statusBarItem.dispose()
     }
-    if (languageStatusBarItem) {
-      languageStatusBarItem.dispose()
-    }
+    // Language switcher disabled
+    // if (languageStatusBarItem) {
+    //   languageStatusBarItem.dispose()
+    // }
   },
 }
