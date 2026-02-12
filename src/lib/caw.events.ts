@@ -68,9 +68,15 @@ eventsTable['branch:select'] = (branchOrData: string | any) => {
   // Handle two cases:
   // 1. Called from webview with branch name (string) - need to transmit to Gardener
   // 2. Called from IPC with response data (object) - already processed by Gardener
-  
+
   logger.log('branch:select handler called with:', typeof branchOrData, branchOrData)
-  
+
+  // Filter: if broadcast includes origin, only respond if it matches our active project
+  if (typeof branchOrData !== 'string' && branchOrData?.origin && CAWStore.activeProject?.origin && branchOrData.origin !== CAWStore.activeProject.origin) {
+    logger.log('branch:select: Ignoring broadcast for', branchOrData.origin, '(active:', CAWStore.activeProject.origin, ')')
+    return
+  }
+
   if (typeof branchOrData === 'string') {
     // Case 1: Branch name from webview
     logger.log('branch:select Case 1: String branch name')
@@ -121,6 +127,12 @@ eventsTable['peer:select'] = (peer: any) => {
   const activeProject = CAWStore.activeProject
   if (!activeProject) {
     logger.log('peer:select: No active project available yet')
+    return
+  }
+
+  // Filter: only respond if broadcast origin matches our active project
+  if (peer?.origin && activeProject.origin && peer.origin !== activeProject.origin) {
+    logger.log('peer:select: Ignoring broadcast for', peer.origin, '(active:', activeProject.origin, ')')
     return
   }
 
