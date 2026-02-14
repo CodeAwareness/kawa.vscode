@@ -39,6 +39,8 @@ class IPC {
   private writePipePath: string | null = null // Client writes, server reads
   private readSocket: Socket | null = null    // For reading from server (Windows dual-pipe)
   private writeSocket: Socket | null = null   // For writing to server (Windows dual-pipe)
+  private retryTimer: NodeJS.Timeout | null = null // Track retry timer to prevent multiple retries
+  private isReconnecting = false // Flag to prevent multiple simultaneous reconnection attempts
 
   constructor(socketName: string) {
     // On Windows, socketName is ignored - we use catalog pipe
@@ -55,10 +57,15 @@ class IPC {
     if (this.socket && !this.socket.destroyed) {
       return callback && callback() // already connected
     }
-    if (this.socket) this.socket.destroy()
-    if (this.readSocket) this.readSocket.destroy()
-    if (this.writeSocket) this.writeSocket.destroy()
-    if (this.catalogSocket) this.catalogSocket.destroy()
+    
+    // Clear any pending retry timer
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer)
+      this.retryTimer = null
+    }
+    
+    // Clean up existing connections
+    this.cleanupConnections()
 
     if (isWindows) {
       // Windows: Use catalog pipe pattern
@@ -67,6 +74,63 @@ class IPC {
       // Unix: Direct socket connection
       this.connectDirect(callback)
     }
+  }
+
+  private cleanupConnections() {
+    if (this.socket && !this.socket.destroyed) {
+      this.socket.removeAllListeners()
+      this.socket.destroy()
+      this.socket = null
+    }
+    if (this.readSocket && !this.readSocket.destroyed) {
+      this.readSocket.removeAllListeners()
+      this.readSocket.destroy()
+      this.readSocket = null
+    }
+    if (this.writeSocket && !this.writeSocket.destroyed) {
+      this.writeSocket.removeAllListeners()
+      this.writeSocket.destroy()
+      this.writeSocket = null
+    }
+    if (this.catalogSocket && !this.catalogSocket.destroyed) {
+      this.catalogSocket.removeAllListeners()
+      this.catalogSocket.destroy()
+      this.catalogSocket = null
+    }
+  }
+
+  private scheduleRetry(callback?: any) {
+    // Prevent multiple simultaneous reconnection attempts
+    if (this.isReconnecting || this.explicitlyDisconnected) {
+      return
+    }
+
+    // Clear any existing retry timer
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer)
+    }
+
+    // Check if we should retry
+    if (this.retriesRemaining < 1) {
+      logger.log('IPC: Max retries exceeded, stopping reconnection attempts')
+      return
+    }
+
+    this.isReconnecting = true
+    logger.log(`IPC: Scheduling retry in ${this.retryInterval}ms (${this.retriesRemaining} retries remaining)`)
+    
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null
+      this.isReconnecting = false
+      
+      if (this.explicitlyDisconnected) {
+        return
+      }
+      
+      this.retriesRemaining--
+      logger.log('IPC: Retrying connection...')
+      this.connect(callback)
+    }, this.retryInterval)
   }
 
   private connectViaCatalog(callback?: any) {
@@ -154,10 +218,24 @@ class IPC {
     catalogSocket.on('error', (err: NodeJS.ErrnoException) => {
       logger.log('IPC: Catalog pipe error:', err)
       console.error('IPC: Catalog pipe error:', err)
+      // Schedule retry on error if not explicitly disconnected
+      if (!this.explicitlyDisconnected && !this.isReconnecting) {
+        catalogSocket.destroy()
+        this.catalogSocket = null
+        this.scheduleRetry(callback)
+      }
     })
     
     catalogSocket.on('close', () => {
       logger.log('IPC: Catalog pipe closed')
+      // Only retry if we haven't successfully connected to dedicated pipes yet
+      // (i.e., if readSocket and writeSocket are not connected)
+      if (!this.explicitlyDisconnected && 
+          (!this.readSocket || this.readSocket.destroyed) && 
+          (!this.writeSocket || this.writeSocket.destroyed) &&
+          !this.isReconnecting) {
+        this.scheduleRetry(callback)
+      }
     })
   }
 
@@ -190,6 +268,7 @@ class IPC {
       if (readConnected && writeConnected && !connectionError) {
         logger.log('IPC: Both pipes connected')
         this.retriesRemaining = this.maxRetries
+        this.isReconnecting = false
         // Emit handshake event with CAW ID
         this.pubsub.emit('handshake', cawId)
         if (callback) callback()
@@ -201,8 +280,13 @@ class IPC {
         connectionError = err
         logger.log(`IPC: ${pipeName} pipe error:`, err)
         console.error(`IPC: ${pipeName} pipe error:`, err)
+        // Destroy both pipes on error
         readSocket.destroy()
         writeSocket.destroy()
+        // Schedule retry if not explicitly disconnected
+        if (!this.explicitlyDisconnected) {
+          this.scheduleRetry(callback)
+        }
       }
     }
     
@@ -229,34 +313,40 @@ class IPC {
     readSocket.on('timeout', () => {
       logger.log('IPC: Read pipe timeout')
       readSocket.destroy()
+      // Also destroy write socket to ensure clean retry
+      if (writeSocket && !writeSocket.destroyed) {
+        writeSocket.destroy()
+      }
     })
     
     writeSocket.on('timeout', () => {
       logger.log('IPC: Write pipe timeout')
       writeSocket.destroy()
+      // Also destroy read socket to ensure clean retry
+      if (readSocket && !readSocket.destroyed) {
+        readSocket.destroy()
+      }
     })
     
     readSocket.on('close', () => {
       logger.log('IPC: Read pipe closed')
-      if (this.retriesRemaining >= 1 && !this.explicitlyDisconnected) {
-        this.retriesRemaining--
-        setTimeout(() => {
-          if (!this.explicitlyDisconnected) {
-            this.connectViaCatalog(callback)
-          }
-        }, this.retryInterval)
+      readConnected = false
+      // Only retry if both pipes are closed and not explicitly disconnected
+      if (!this.explicitlyDisconnected && 
+          (!this.writeSocket || this.writeSocket.destroyed) &&
+          !this.isReconnecting) {
+        this.scheduleRetry(callback)
       }
     })
     
     writeSocket.on('close', () => {
       logger.log('IPC: Write pipe closed')
-      if (this.retriesRemaining >= 1 && !this.explicitlyDisconnected) {
-        this.retriesRemaining--
-        setTimeout(() => {
-          if (!this.explicitlyDisconnected) {
-            this.connectViaCatalog(callback)
-          }
-        }, this.retryInterval)
+      writeConnected = false
+      // Only retry if both pipes are closed and not explicitly disconnected
+      if (!this.explicitlyDisconnected && 
+          (!this.readSocket || this.readSocket.destroyed) &&
+          !this.isReconnecting) {
+        this.scheduleRetry(callback)
       }
     })
     
@@ -319,11 +409,17 @@ class IPC {
       if ('address' in err) errorDetails.address = (err as any).address
       if ('path' in err) errorDetails.path = (err as any).path
       console.error('IPC: Dedicated pipe error details:', errorDetails)
+      // Schedule retry on error if not explicitly disconnected
+      if (!this.explicitlyDisconnected) {
+        socket.destroy()
+        this.scheduleRetry(callback)
+      }
     })
 
     socket.on('connect', () => {
       logger.log('IPC: Connected to dedicated pipe', this.dedicatedPipePath)
       this.retriesRemaining = this.maxRetries
+      this.isReconnecting = false
       // Clear the connection timeout once connected
       socket.setTimeout(0)
       // Emit handshake event with CAW ID
@@ -352,20 +448,10 @@ class IPC {
     socket.on('close', (exitCode: any) => {
       logger.log('IPC: Dedicated pipe closed', this.dedicatedPipePath, this.retriesRemaining, 'tries remaining of', this.maxRetries, exitCode)
 
-      if (this.retriesRemaining < 1 || this.explicitlyDisconnected) {
-        logger.log('IPC: connection failed. Exceeded the maximum retries.', this.dedicatedPipePath)
-        socket.destroy()
-        return
+      if (!this.explicitlyDisconnected && !this.isReconnecting) {
+        // Schedule retry
+        this.scheduleRetry(callback)
       }
-
-      setTimeout(() => {
-        if (this.explicitlyDisconnected) {
-          return
-        }
-        this.retriesRemaining--
-        // Reconnect via catalog
-        this.connectViaCatalog(callback)
-      }, this.retryInterval)
     })
 
     socket.on('data', data => {
@@ -420,11 +506,17 @@ class IPC {
         if ('address' in err) errorDetails.address = (err as any).address
         if ('path' in err) errorDetails.path = (err as any).path
         console.error('IPC: socket error details:', errorDetails)
+        // Schedule retry on error if not explicitly disconnected
+        if (!this.explicitlyDisconnected) {
+          socket.destroy()
+          this.scheduleRetry(callback)
+        }
       })
 
       socket.on('connect', () => {
         logger.log('IPC: socket connected', this.path)
         this.retriesRemaining = this.maxRetries
+        this.isReconnecting = false
         // Clear the connection timeout once connected
         socket.setTimeout(0)
         if (callback) callback()
@@ -451,19 +543,10 @@ class IPC {
       socket.on('close', (exitCode: any) => {
         logger.log('IPC: connection closed', this.path, this.retriesRemaining, 'tries remaining of', this.maxRetries, exitCode)
 
-        if (this.retriesRemaining < 1 || this.explicitlyDisconnected) {
-          logger.log('IPC: connection failed. Exceeded the maximum retries.', this.path)
-          socket.destroy()
-          return
+        if (!this.explicitlyDisconnected && !this.isReconnecting) {
+          // Schedule retry
+          this.scheduleRetry(callback)
         }
-
-        setTimeout(() => {
-          if (this.explicitlyDisconnected) {
-            return
-          }
-          this.retriesRemaining--
-          this.connect()
-        }, this.retryInterval)
       })
 
       socket.on('data', data => {
