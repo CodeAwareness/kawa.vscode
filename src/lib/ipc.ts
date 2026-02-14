@@ -1,4 +1,5 @@
 import os from 'os'
+import fs from 'fs'
 import path from 'node:path'
 import net, { Socket } from 'net'
 import { EventEmitter } from 'node:events'
@@ -8,6 +9,38 @@ import logger from './logger'
 const id = os.hostname()
 const delimiter = '\n'  // Huginn IPC server expects newline-delimited messages
 const isWindows = os.platform() === 'win32'
+
+/**
+ * Muninn's Tauri bundle identifier.
+ * Used on macOS to locate the App Sandbox container.
+ */
+const MUNINN_BUNDLE_ID = 'com.codeawareness.muninn'
+
+/**
+ * Get the socket directory with platform-aware discovery.
+ *
+ * On macOS, checks the App Sandbox container first (for App Store builds),
+ * then falls back to the non-sandboxed path (for development builds).
+ */
+function getSocketDir(): string {
+  if (isWindows) return '\\\\.\\pipe\\'
+
+  if (os.platform() === 'darwin') {
+    // App Sandbox container (App Store builds)
+    const containerDir = path.join(
+      os.homedir(),
+      'Library', 'Containers', MUNINN_BUNDLE_ID, 'Data',
+      'Library', 'Application Support', 'Kawa Code', 'sockets'
+    )
+    if (fs.existsSync(containerDir)) return containerDir
+
+    // Non-sandboxed (development builds)
+    return path.join(os.homedir(), 'Library', 'Application Support', 'Kawa Code', 'sockets')
+  }
+
+  // Linux
+  return path.join(os.homedir(), '.kawa-code', 'sockets')
+}
 
 // Generate a UUID-like client ID
 function generateClientId(): string {
@@ -23,8 +56,8 @@ class IPC {
   public pubsub = new EventEmitter()
   public socket = null as Socket | null
   // On Windows, use catalog pipe: \\.\pipe\muninn.catalog, then dedicated pipe per client
-  // On Unix, use file-based socket: ~/.kawa-code/sockets/muninn
-  public socketRoot = isWindows ? '\\\\.\\pipe\\' : path.join(os.homedir(), '.kawa-code', 'sockets')
+  // On Unix, use file-based socket with platform-aware discovery
+  public socketRoot = getSocketDir()
   public retryInterval = 2000 // retry connecting every 2 seconds
   public maxRetries = Infinity
 
