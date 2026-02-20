@@ -3,7 +3,7 @@
   "displayName": "Kawa Code",
   "description": "Universal Context Platform.",
   "icon": "media/icons/kawacode-logo.png",
-  "version": "4.0.4",
+  "version": "4.0.5",
   "publisher": "CodeAwareness",
   "author": "Mark Vasile",
   "repository": "https://github.com/CodeAwareness/caw.vscode",
