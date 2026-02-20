@@ -26,16 +26,22 @@ function getSocketDir(): string {
   if (isWindows) return '\\\\.\\pipe\\'
 
   if (os.platform() === 'darwin') {
-    // App Sandbox container (App Store builds)
-    const containerDir = path.join(
-      os.homedir(),
-      'Library', 'Containers', MUNINN_BUNDLE_ID, 'Data',
-      'Library', 'Application Support', 'Kawa Code', 'sockets'
-    )
-    if (fs.existsSync(containerDir)) return containerDir
-
-    // Non-sandboxed (development builds)
-    return path.join(os.homedir(), 'Library', 'Application Support', 'Kawa Code', 'sockets')
+    const candidates = [
+      // ~/.kawa-code/sockets (current default for all platforms)
+      path.join(os.homedir(), '.kawa-code', 'sockets'),
+      // App Sandbox container (App Store builds)
+      path.join(
+        os.homedir(),
+        'Library', 'Containers', MUNINN_BUNDLE_ID, 'Data',
+        'Library', 'Application Support', 'Kawa Code', 'sockets'
+      ),
+      // Non-sandboxed (development builds)
+      path.join(os.homedir(), 'Library', 'Application Support', 'Kawa Code', 'sockets'),
+    ]
+    for (const dir of candidates) {
+      if (fs.existsSync(path.join(dir, 'muninn'))) return dir
+    }
+    return candidates[0]
   }
 
   // Linux
