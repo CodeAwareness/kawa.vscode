@@ -45,10 +45,10 @@ export const CAWStatusbar = {
   },
 
   live: () => {
-    statusBarItem.text = 'CodeAwareness'
+    statusBarItem.text = 'Kawa Code'
     // Panel toggle removed - UI now handled by Kawa Code app
     // statusBarItem.command = 'caw.toggle'
-    statusBarItem.tooltip = 'CodeAwareness extension is active'
+    statusBarItem.tooltip = 'Kawa Code extension is active'
   },
 
   updateLanguage: (language: string) => {

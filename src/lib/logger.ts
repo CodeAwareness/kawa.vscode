@@ -1,5 +1,5 @@
 /**********************
- * CodeAwareness logger
+ * Kawa Code logger
  **********************/
 /* eslint-disable no-console */
 import config from '@/config'

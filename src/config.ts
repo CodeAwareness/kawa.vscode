@@ -2,7 +2,7 @@ import process from 'process'
 import vscode from 'vscode'
 
 // TODO: move some/all these into VSCode extension configuration instead
-const cawConfig = vscode.workspace.getConfiguration('codeAwareness')
+const cawConfig = vscode.workspace.getConfiguration('KawaCode')
 
 /* eslint-disable-next-line */
 const DEBUG = false // TODO: how to determine if we're running inside an extension host or as an installed extension
@@ -12,11 +12,11 @@ const LOCAL_API = false // Kawa Code API
 
 const LOCAL_PANEL = false // VSCode webview panel
 
-// Dev mode when you have CodeAwareness VSCode Panel running locally; please configure local nginx.
+// Dev mode when you have Kawa Code VSCode Panel running locally; please configure local nginx.
 const PORT_LOCAL = 8885
 
 // SCHEMA used by VSCode to handle repository, SCM, etc
-const CAW_SCHEMA = 'codeAwareness'
+const CAW_SCHEMA = 'KawaCode'
 
 // SCHEMA for translated file system (transparent translation layer)
 const TRANSLATED_SCHEMA = 'kawa-translated'
@@ -32,7 +32,7 @@ const PANEL_URL = LOCAL_PANEL ? `https://lc.codeawareness.com:${PORT_LOCAL}` : '
 
 const PROD_MEDIA = 'https://ext.codeawareness.com'
 
-// Add this extension to the catalog of clients on CodeAwareness Local Service.
+// Add this extension to the catalog of clients on Kawa Code.
 const CATALOG: string = cawConfig.get('catalog') || 'catalog'
 const HIGHLIGHT_WHILE_CLOSED: boolean = cawConfig.get('highlight_while_closed') || false
 const PIPE_CATALOG = CATALOG + (CATALOG_DEV ? '_dev' : '')

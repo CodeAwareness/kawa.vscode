@@ -16,7 +16,7 @@ More information on our [website](https://codeawareness.com).
 
 ## Requirements
 
-1. Download and install the [Kawa Code Muninn](https://codeawareness.com/) application. This is the application that shows you contextual information for the work you're doing in other applications.
+1. Download and install the [Kawa Code](https://codeawareness.com/) application. This is the application that shows you contextual information for the work you're doing in other applications.
 
 ## Release Notes
 

@@ -1,5 +1,5 @@
 /************************
- * CodeAwareness settings
+ * Kawa Code settings
  ************************/
 import * as vscode from 'vscode'
 /*

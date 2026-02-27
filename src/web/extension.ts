@@ -35,7 +35,7 @@ const SELECTION_DEBOUNCE_MS = 150 // 150ms debounce for cursor movement
 
 export const SCM_PEER_FILES_VIEW = 'codeAwareness'
 
-export const activate = initCodeAwareness
+export const activate = initKawaCode
 
 export function deactivate() {
   const promises = [
@@ -52,11 +52,11 @@ export function deactivate() {
     promises.push(task())
   }
 
-  logger.info('CodeAwareness: extension deactivated')
+  logger.info('Kawa Code: extension deactivated')
   return Promise.all(promises)
 }
 
-function initCodeAwareness(context: vscode.ExtensionContext) {
+function initKawaCode(context: vscode.ExtensionContext) {
   // TODO: when no projects / repos available we should skip init; currently we are getting "cannot read property 'document' of undefined
   activated = true
   initConfig()
@@ -112,7 +112,7 @@ function initCodeAwareness(context: vscode.ExtensionContext) {
 
   setupCommands(context)
   setupWatchers(context)
-  logger.info('CodeAwareness: extension activated (workspaceFolders)', vscode.workspace.workspaceFolders)
+  logger.info('Kawa Code: extension activated (workspaceFolders)', vscode.workspace.workspaceFolders)
   const disposable = {
     dispose: () => {
       CAWIPC.dispose()
@@ -127,17 +127,17 @@ const CAWDocumentContentProvider = {
   _onDidChange: new vscode.EventEmitter(),
 
   get onDidChange() {
-    logger.info('CodeAwareness: cawDocumentContentProvider onDidChange')
+    logger.info('Kawa Code: cawDocumentContentProvider onDidChange')
     return this._onDidChange.event
   },
 
   dispose() {
-    logger.info('CodeAwareness: cawDocumentContentProvider dispose')
+    logger.info('Kawa Code: cawDocumentContentProvider dispose')
     this._onDidChange.dispose()
   },
 
   updated(repo: any) {
-    logger.info('CodeAwareness: cawDocumentContentProvider updated', repo)
+    logger.info('Kawa Code: cawDocumentContentProvider updated', repo)
     // this._onDidChange.fire(Uri.parse(`${CAW_SCHEMA}:src/extension.js`))
   },
 
@@ -148,7 +148,7 @@ const CAWDocumentContentProvider = {
     const ctId = selectedPeer.user
     const userDir = path.join(tmpDir, ctId.toString(), wsName)
     const peerFile = path.join(userDir, config.EXTRACT_REPO_DIR, uri)
-    // logger.info('CodeAwareness: cawDocumentContentProvider uri', relativePath.path, 'peerFile', peerFile)
+    // logger.info('Kawa Code: cawDocumentContentProvider uri', relativePath.path, 'peerFile', peerFile)
 
     return CAWIPC.transmit('read-file', { fpath: peerFile })
       // TODO: find a better way to indicate deleted file, as opposed to new file created, as opposed to simply file not existing
@@ -180,8 +180,8 @@ function setupWatchers(context: vscode.ExtensionContext) {
   )
   // Sync workspace folders
   subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(e => {
-    if (!activated) initCodeAwareness(context)
-    logger.info('CodeAwareness: onDidChangeWorkspaceFolders (events)', e)
+    if (!activated) initKawaCode(context)
+    logger.info('Kawa Code: onDidChangeWorkspaceFolders (events)', e)
     try {
       e.added.forEach(wsFolder => {
         CAWTDP.addPeerWorkspace(wsFolder)
@@ -347,5 +347,5 @@ function setupWatchers(context: vscode.ExtensionContext) {
   deactivateTasks.push(() => telemetryReporter.dispose())
   */
 
-  logger.log('CodeAwareness: setup watchers complete.')
+  logger.log('Kawa Code: setup watchers complete.')
 }

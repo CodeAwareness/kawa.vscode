@@ -65,7 +65,7 @@ function updateDecorations(project?: any) {
  * trying to close the diff window.
  *
  * A workaround attempt, trying to close the diff window when the user clicks the
- * same selected peer in CodeAwareness WebView
+ * same selected peer in Kawa Code WebView
  ************************************************************************************/
 let tryingToClose: boolean // Yeah, I don't know how to do this, VSCode seems to be stripped of fundamental window concepts, or maybe it's an Electron issue
 function closeDiffEditor() {

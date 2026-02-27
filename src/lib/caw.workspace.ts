@@ -115,7 +115,7 @@ function refreshActiveFile() {
     doc: CAWStore.activeTextEditor?.document?.getText(),
   })
     .then((response: any) => {
-      // Muninn wraps the project in a response object
+      // Kawa Code wraps the project in a response object
       const project = response.project || response
       // Map 'highlights' field to 'hl' field expected by the VSCode extension
       if (project.highlights && !project.hl) {

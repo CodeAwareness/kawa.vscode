@@ -11,7 +11,7 @@ const delimiter = '\n'  // Huginn IPC server expects newline-delimited messages
 const isWindows = os.platform() === 'win32'
 
 /**
- * Muninn's Tauri bundle identifier.
+ * Kawa Code's Tauri bundle identifier.
  * Used on macOS to locate the App Sandbox container.
  */
 const MUNINN_BUNDLE_ID = 'com.codeawareness.muninn'

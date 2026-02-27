@@ -61,9 +61,9 @@ function createPanel(extensionPath: string) {
 }
 
 /************************************************************************************
- * toggle CodeAwareness panel on and off
+ * toggle Kawa Code panel on and off
  *
- * When toggling the CodeAwareness webview panel on and off,
+ * When toggling the Kawa Code webview panel on and off,
  * we load the svelte app into the webview and show or hide the panel.
  *
  * @param context vscode.ExtensionContext - context object from VSCode
@@ -116,7 +116,7 @@ function getWebviewContent(webview: vscode.Webview) {
   // TODO: everytime i publish the CAW Panel it builds a new chunk hash, try to make this pain go away without introducing cache headaches
   // TODO: replace unsafe-inline styles with nonce or hashes
   webview.html = `<!doctype html><html lang="en"><head><meta charset="UTF-8">
-    <title>CodeAwareness VSCode panel</title>
+    <title>Kawa Code VSCode panel</title>
     <meta http-equiv="Content-Security-Policy" content="default-src ${cspSource}; style-src ${cspSource} 'unsafe-inline'; img-src ${mediaSource}; script-src 'nonce-${nonce}';">
     <script defer="defer" nonce="${nonce}" src="${config.PANEL_URL}/runtime.js"></script>
     <script defer="defer" nonce="${nonce}" src="${config.PANEL_URL}/889.js?t=${new Date().valueOf()}"></script>
@@ -134,7 +134,7 @@ function getWebviewContentTest(webview: vscode.Webview) {
   const mediaSource = config.PANEL_URL
   // TODO: everytime i publish the CAW Panel it builds a new chunk hash, try to make this pain go away without introducing cache headaches
   webview.html = `<!doctype html><html lang="en"><head><meta charset="UTF-8">
-    <title>CodeAwareness vstest panel</title>
+    <title>Kawa Code vstest panel</title>
     <meta http-equiv="Content-Security-Policy" content="default-src ${cspSource}; style-src ${cspSource} 'unsafe-inline'; img-src ${cspSource} ${mediaSource}; script-src 'nonce-${nonce}' 'unsafe-eval';">
     <script defer="defer" nonce="${nonce}" src="${config.PANEL_URL}/main.js?t=${new Date().valueOf()}"></script>
     <body>

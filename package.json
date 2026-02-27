@@ -200,13 +200,13 @@
     "configuration": {
       "title": "Kawa Code",
       "properties": {
-        "codeAwareness.catalog": {
+        "KawaCode.catalog": {
           "type": "string",
           "default": "catalog",
           "description": "%caw.config.catalog%",
           "scope": "application"
         },
-        "codeAwareness.highlight_while_closed": {
+        "KawaCode.highlight_while_closed": {
           "type": "boolean",
           "default": true,
           "description": "%caw.config.highlight_while_closed",

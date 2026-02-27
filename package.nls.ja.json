@@ -11,7 +11,7 @@
   "extension.prevPeer": "前の寄稿者",
   "extension.refresh": "再読込",
   "extension.selectRange": "セレクトする",
-  "extension.toggle": "CodeAwarenessをトグル",
-  "caw.config.catalog": "Catalogのファイル名前 (Muninn開発の際に必要となる)",
+  "extension.toggle": "Kawa Codeをトグル",
+  "caw.config.catalog": "Catalogのファイル名前 (Kawa Code開発の際に必要となる)",
   "caw.config.highlight_while_closed": "Kawa Codeパネルが閉じている場合でも、コード差分のハイライトを表示する"
 }

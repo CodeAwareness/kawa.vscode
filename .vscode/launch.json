@@ -6,7 +6,7 @@
 	"version": "1.0.0",
 	"configurations": [
 		{
-			"name": "Run CodeAwareness Extension ",
+			"name": "Run Kawa Code Extension ",
 			"type": "extensionHost",
 			"debugWebWorkerHost": true,
 			"request": "launch",
@@ -19,7 +19,7 @@
 			"preLaunchTask": "npm: compile-web"
 		},
 		{
-			"name": "Debug CodeAwareness Extension ",
+			"name": "Debug Kawa Code Extension ",
 			"type": "extensionHost",
 			"debugWebWorkerHost": true,
 			"request": "launch",

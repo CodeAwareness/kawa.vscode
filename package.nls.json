@@ -11,7 +11,7 @@
   "extension.prevPeer": "Previous peer",
   "extension.refresh": "Refresh",
   "extension.selectRange": "Select diff range",
-  "extension.toggle": "Toggle CodeAwareness panel",
+  "extension.toggle": "Toggle Kawa Code panel",
   "caw.config.catalog": "Catalog file name. (used only during Muninn development)",
   "caw.config.highlight_while_closed": "Show diff highlights even when Kawa Code panel is closed."
 }

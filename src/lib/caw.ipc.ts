@@ -1,5 +1,5 @@
 /******************************************************************
- * CodeAwareness Inter Process Communication with the Local Service
+ * Inter Process Communication with Kawa Code
  ******************************************************************/
 import os from 'os'
 import IPC from '@/lib/ipc'
