@@ -283,7 +283,7 @@ function setupWatchers(context: vscode.ExtensionContext) {
 
   /************************************************************************************
    * User navigating to a line of code inside the activeTextEditor
-   * Sends select-lines signal to Muninn with debouncing to avoid excessive IPC calls
+   * Sends select-lines signal to Kawa Code with debouncing to avoid excessive IPC calls
    ************************************************************************************/
   subscriptions.push(vscode.window.onDidChangeTextEditorSelection(event => {
     const { selections, textEditor } = event

@@ -1,12 +1,12 @@
 /**
  * Direct IPC connection to the i18n extension
  *
- * This module connects directly to the kawa.i18n socket, bypassing Muninn
+ * This module connects directly to the kawa.i18n socket, bypassing Kawa Code
  * for lower latency translation operations.
  *
  * Architecture:
  * - Huginn (VSCode) connects directly to i18n extension socket
- * - i18n gets origin from its own cache (or queries Muninn if needed)
+ * - i18n gets origin from its own cache (or queries Kawa Code if needed)
  * - Language state is managed by i18n per CAW
  */
 import * as os from 'os'
@@ -49,7 +49,7 @@ class I18nIPC {
   }>()
 
   /**
-   * Set the CAW ID (received from Muninn IPC)
+   * Set the CAW ID (received from Kawa Code IPC)
    */
   setCaw(caw: string): void {
     this.caw = caw

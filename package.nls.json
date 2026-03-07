@@ -12,6 +12,6 @@
   "extension.refresh": "Refresh",
   "extension.selectRange": "Select diff range",
   "extension.toggle": "Toggle Kawa Code panel",
-  "caw.config.catalog": "Catalog file name. (used only during Muninn development)",
+  "caw.config.catalog": "Catalog file name. (used only during Kawa Code development)",
   "caw.config.highlight_while_closed": "Show diff highlights even when Kawa Code panel is closed."
 }

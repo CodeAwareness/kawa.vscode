@@ -32,7 +32,7 @@ Code translation feature
 
 ### 1.0.7
 
-Launch of Muninn and Huginn system. You now have a separate application where you can see the context for your work, without having to open the Kawa Code panel in VSCode. You can keep the Kawa Code Muninn application open on one monitor while working with VSCode on another monitor.
+Launch of Kawa Code and Huginn system. You now have a separate application where you can see the context for your work, without having to open the Kawa Code panel in VSCode. You can keep the Kawa Code application open on one monitor while working with VSCode on another monitor.
 
 - simpler installation
 - solid foundations for extensibility of Kawa Code; expect a plugin system coming up soon.
@@ -56,7 +56,7 @@ First open-source release.
 ## Setup
 
 - Run your Kawa Code panel with `yarn dev`
-- Launch the Kawa Code Muninn application
+- Launch the Kawa Code application
 - Finally go to VSCode, open this extension source code folder, change `const DEBUG = true` in the `src/config` file, and choose Run Extension.
 
 ## Setup git to work with unicode in your filenames

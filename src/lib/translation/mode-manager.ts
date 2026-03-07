@@ -92,7 +92,7 @@ export async function enableTranslationMode(lang: string): Promise<void> {
   const connected = await ensureI18nConnection()
   if (!connected) {
     vscode.window.showErrorMessage(
-      'Failed to connect to i18n translation service. Make sure Muninn is running with the i18n extension enabled.'
+      'Failed to connect to i18n translation service. Make sure Kawa Code is running with the i18n extension enabled.'
     )
     return
   }
@@ -112,11 +112,11 @@ export async function enableTranslationMode(lang: string): Promise<void> {
     logger.error(`[ModeManager] Failed to sync language with i18n: ${error}`)
   }
 
-  // Notify Muninn about language change
+  // Notify Kawa Code about language change
   try {
     await CAWIPC.transmit('user:set-language', { language: lang })
   } catch (error) {
-    logger.error(`[ModeManager] Failed to notify Muninn: ${error}`)
+    logger.error(`[ModeManager] Failed to notify Kawa Code: ${error}`)
   }
 
   // Set up file open interception

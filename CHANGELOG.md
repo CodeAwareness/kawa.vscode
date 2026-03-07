@@ -23,7 +23,7 @@ Minor fix for IPC communication.
 
 ### 1.0.8
 
-Launch of Muninn and Huginn system. You now have a separate application where you can see the context for your work, without having to open the Kawa Code panel in VSCode. You can keep the Kawa Code Muninn application open on one monitor while working with VSCode on another monitor.
+Launch of Kawa Code and Huginn system. You now have a separate application where you can see the context for your work, without having to open the Kawa Code panel in VSCode. You can keep the Kawa Code application open on one monitor while working with VSCode on another monitor.
 
 - simpler installation, multiple monitor support through a dedicated application window.
 - solid foundations for extensibility of Kawa Code; expect a plugin system coming up soon.

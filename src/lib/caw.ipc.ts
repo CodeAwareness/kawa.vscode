@@ -19,8 +19,8 @@ export const shortid = () => {
  * TODO: perhaps allow different users logged into different VSCode instances? IS THIS SECURE? (it will require rewriting some of the local service)
  */
 let assignedCAW: string | null = null // CAW ID assigned by Huginn IPC server
-// On Windows: Uses catalog pipe (\\.\pipe\muninn.catalog), socketName is ignored
-// On Unix: Uses ~/.kawa-code/sockets/muninn
+// On Windows: Uses catalog pipe (\\.\pipe\muninn.catalog), socketName is ignored (pipe name is hardcoded)
+// On Unix: Uses ~/.kawa-code/sockets/muninn (socket name matches Kawa Code desktop app)
 const socketName = 'muninn' // Used only on Unix
 const ipcClient = new IPC(socketName)
 const responseHandlers = new Map<string, { resolve: Function, reject: Function }>()

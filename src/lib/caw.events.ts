@@ -94,7 +94,7 @@ eventsTable['branch:select'] = (branchOrData: string | any) => {
         vscode.commands.executeCommand('vscode.diff', userFileUri, peerFileUri, info.title, { viewColumn: 1, preserveFocus: true })
       })
   } else if (branchOrData && branchOrData.peerFile && branchOrData.userFile) {
-    // Case 2: Response data from Gardener (via IPC from external source like Muninn)
+    // Case 2: Response data from Gardener (via IPC from external source like Kawa Code)
     logger.log('branch:select Case 2: Opening diff with peerFile:', branchOrData.peerFile, 'userFile:', branchOrData.userFile)
     const peerFileUri = vscode.Uri.file(branchOrData.peerFile)
     const userFileUri = vscode.Uri.file(branchOrData.userFile)
