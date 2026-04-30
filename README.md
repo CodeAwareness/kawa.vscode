@@ -64,3 +64,21 @@ First open-source release.
 `git config core.quotepath off`
 
 After which a `git ls-files` will list the files with the approriate characters.
+
+-----------------------------------------------------------------------------------------------------------
+
+# License
+
+This extension is released under the MIT License — see [LICENSE.md](./LICENSE.md). You may use, modify, fork, and redistribute the source code under those terms.
+
+# Trademarks
+
+"Kawa Code" and the Kawa Code logo are trademarks of Kawa Code LLC. The MIT license grants you broad rights to the **code** — it does not grant rights to the **name** or **logo**.
+
+If you fork this extension, please:
+
+- Choose a different name and logo for your fork
+- Avoid implying endorsement by, or affiliation with, Kawa Code LLC
+- Refer to the upstream project as "Kawa Code" only to identify origin (e.g., "based on Kawa Code")
+
+For permission to use the marks beyond identification of origin, contact mark@kawacode.ai.
